@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { PDFDocument, rgb } from "pdf-lib";
 
 // Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.mjs';
 
 interface SignaturePosition {
   id: string;
