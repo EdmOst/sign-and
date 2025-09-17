@@ -12,10 +12,7 @@ import { toast } from "sonner";
 import { PDFDocument, rgb } from "pdf-lib";
 
 // Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = window.location.origin + "/pdf.worker.min.mjs";
 
 interface SignaturePosition {
   id: string;
