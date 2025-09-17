@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { PDFDocument, rgb } from "pdf-lib";
 
 // Set up PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = window.location.origin + "/pdf.worker.min.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 interface SignaturePosition {
   id: string;
@@ -53,6 +53,11 @@ export const PDFSigner: React.FC = () => {
     setCurrentPage(1);
     setSignaturePositions([]);
     toast.success("PDF loaded successfully!");
+  };
+
+  const onDocumentLoadError = (error: any) => {
+    console.error("PDF load error:", error);
+    toast.error("Failed to load PDF. Please try another file.");
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -330,7 +335,13 @@ export const PDFSigner: React.FC = () => {
                         className={`relative inline-block ${isPlacingSignature ? 'cursor-crosshair' : 'cursor-default'}`}
                         onClick={handlePageClick}
                       >
-                        <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
+                        <Document 
+                          file={pdfFile} 
+                          onLoadSuccess={onDocumentLoadSuccess}
+                          onLoadError={onDocumentLoadError}
+                          loading={<div>Loading PDF...</div>}
+                          error={<div>Error loading PDF. Please try another file.</div>}
+                        >
                           <Page
                             pageNumber={currentPage}
                             width={Math.min(800, window.innerWidth - 400)}
