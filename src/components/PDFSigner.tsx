@@ -10,6 +10,7 @@ import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
 import { toast } from "sonner";
 import { PDFDocument, rgb } from "pdf-lib";
+import { cn } from "@/lib/utils";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -47,6 +48,7 @@ export const PDFSigner: React.FC = () => {
   });
   const [showArchive, setShowArchive] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
+  const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -73,29 +75,56 @@ export const PDFSigner: React.FC = () => {
   };
 
   const handlePageClick = useCallback((event: React.MouseEvent) => {
-    if (!isPlacingSignature || !pageRef.current) return;
+    if (!pageRef.current) return;
 
     const rect = pageRef.current.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
 
-    const newSignatureArea: SignaturePosition = {
-      id: `sig-${Date.now()}`,
-      x,
-      y,
-      page: currentPage,
-      width: 20,
-      height: 8,
-    };
+    if (isPlacingSignature) {
+      const newSignatureArea: SignaturePosition = {
+        id: `sig-${Date.now()}`,
+        x,
+        y,
+        page: currentPage,
+        width: 20,
+        height: 8,
+      };
 
-    setSignaturePositions(prev => [...prev, newSignatureArea]);
-    setIsPlacingSignature(false);
-    toast.success("Signature area placed! Click to sign.");
-  }, [isPlacingSignature, currentPage]);
+      setSignaturePositions(prev => [...prev, newSignatureArea]);
+      setIsPlacingSignature(false);
+      toast.success("Signature area placed! Click to sign.");
+    } else if (isMovingSignature) {
+      setSignaturePositions(prev =>
+        prev.map(area =>
+          area.id === isMovingSignature
+            ? { ...area, x, y, page: currentPage }
+            : area
+        )
+      );
+      setIsMovingSignature(null);
+      toast.success("Signature area moved!");
+    }
+  }, [isPlacingSignature, isMovingSignature, currentPage]);
 
   const handleSignatureAreaClick = (areaId: string) => {
+    if (isMovingSignature) {
+      setIsMovingSignature(null);
+      return;
+    }
     setCurrentSigningArea(areaId);
     setShowSignaturePad(true);
+  };
+
+  const handleDeleteSignatureArea = (areaId: string) => {
+    setSignaturePositions(prev => prev.filter(area => area.id !== areaId));
+    toast.success("Signature area removed!");
+  };
+
+  const handleMoveSignatureArea = (areaId: string) => {
+    setIsMovingSignature(areaId);
+    setIsPlacingSignature(false);
+    toast.info("Click on document to move signature area");
   };
 
   const handleSignatureComplete = (signatureDataUrl: string) => {
@@ -259,7 +288,10 @@ export const PDFSigner: React.FC = () => {
                     <h3 className="text-lg font-semibold mb-4">Signature Tools</h3>
                     <div className="space-y-4">
                       <Button
-                        onClick={() => setIsPlacingSignature(true)}
+                        onClick={() => {
+                          setIsPlacingSignature(true);
+                          setIsMovingSignature(null);
+                        }}
                         variant={isPlacingSignature ? "destructive" : "default"}
                         className="w-full"
                       >
@@ -337,7 +369,10 @@ export const PDFSigner: React.FC = () => {
                     <div className="relative">
                       <div 
                         ref={pageRef}
-                        className={`relative inline-block ${isPlacingSignature ? 'cursor-crosshair' : 'cursor-default'}`}
+                        className={cn(
+                          "relative inline-block",
+                          isPlacingSignature || isMovingSignature ? 'cursor-crosshair' : 'cursor-default'
+                        )}
                         onClick={handlePageClick}
                       >
                         <Document 
@@ -362,13 +397,15 @@ export const PDFSigner: React.FC = () => {
                               key={position.id}
                               position={position}
                               onClick={() => handleSignatureAreaClick(position.id)}
+                              onDelete={!position.signature ? () => handleDeleteSignatureArea(position.id) : undefined}
+                              onMove={!position.signature ? () => handleMoveSignatureArea(position.id) : undefined}
                             />
                           ))}
                       </div>
                       
-                      {isPlacingSignature && (
+                      {(isPlacingSignature || isMovingSignature) && (
                         <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-3 py-2 rounded shadow-medium">
-                          Click on the document to place a signature area
+                          {isPlacingSignature ? "Click on the document to place a signature area" : "Click on the document to move the signature area"}
                         </div>
                       )}
                     </div>
