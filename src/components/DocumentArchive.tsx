@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Search, Download, Calendar, FileText, Filter } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Document, Page } from "react-pdf";
+import { ArrowLeft, Search, Download, Calendar, FileText, Filter, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 interface SignaturePosition {
@@ -31,10 +33,74 @@ interface DocumentArchiveProps {
   onClose: () => void;
 }
 
+const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean; onClose: () => void }> = ({ document, isOpen, onClose }) => {
+  const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setCurrentPage(1);
+  };
+
+  if (!document) return null;
+
+  const pdfBlob = new Blob([document.signedFile || document.originalFile], { type: 'application/pdf' });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            {document.name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-auto">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1}
+                size="sm"
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {numPages}
+              </span>
+              <Button
+                onClick={() => setCurrentPage(Math.min(numPages, currentPage + 1))}
+                disabled={currentPage >= numPages}
+                size="sm"
+              >
+                Next
+              </Button>
+            </div>
+            <Document 
+              file={pdfBlob} 
+              onLoadSuccess={onDocumentLoadSuccess}
+              loading={<div>Loading preview...</div>}
+              error={<div>Error loading preview</div>}
+            >
+              <Page
+                pageNumber={currentPage}
+                width={Math.min(600, window.innerWidth - 200)}
+                className="shadow-soft border rounded"
+              />
+            </Document>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onClose }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
+  const [previewDocument, setPreviewDocument] = useState<SignedDocument | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const filteredDocuments = useMemo(() => {
     let filtered = documents.filter(doc =>
@@ -69,6 +135,11 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
       link.click();
       URL.revokeObjectURL(url);
     }
+  };
+
+  const handlePreview = (document: SignedDocument) => {
+    setPreviewDocument(document);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -215,6 +286,15 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
                   
                   <div className="flex flex-col gap-2 ml-4">
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePreview(document)}
+                      className="flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview
+                    </Button>
+                    <Button
                       variant="professional"
                       size="sm"
                       onClick={() => handleDownload(document)}
@@ -231,6 +311,15 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
           ))
         )}
       </div>
+
+      <PreviewModal 
+        document={previewDocument}
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewDocument(null);
+        }}
+      />
     </div>
   );
 };

@@ -41,7 +41,10 @@ export const PDFSigner: React.FC = () => {
   const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState<boolean>(false);
   const [currentSigningArea, setCurrentSigningArea] = useState<string | null>(null);
-  const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>([]);
+  const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>(() => {
+    const saved = localStorage.getItem('pdf-signer-documents');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showArchive, setShowArchive] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   
@@ -174,7 +177,9 @@ export const PDFSigner: React.FC = () => {
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
-      setSignedDocuments(prev => [signedDoc, ...prev]);
+      const newDocuments = [signedDoc, ...signedDocuments];
+      setSignedDocuments(newDocuments);
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
       toast.success("Document signed and downloaded successfully!");
     } catch (error) {
       console.error("Error signing PDF:", error);
@@ -192,7 +197,7 @@ export const PDFSigner: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <FileText className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">PDF Signer Pro</h1>
+              <h1 className="text-2xl font-bold text-foreground">PDF SIGNER</h1>
             </div>
             <div className="flex gap-3">
               <Button
