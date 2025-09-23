@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Upload, Download, FileText, Calendar, Search, Home, LogOut, Archive } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
@@ -49,6 +50,7 @@ export const PDFSigner: React.FC = () => {
   const [currentSigningArea, setCurrentSigningArea] = useState<string | null>(null);
   const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>([]);
   const [showArchive, setShowArchive] = useState<boolean>(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
   
@@ -204,16 +206,58 @@ export const PDFSigner: React.FC = () => {
     setShowSignaturePad(false);
     setCurrentSigningArea(null);
     toast.success("Signature added successfully!");
+    
+    // Show archive confirmation dialog
+    setShowArchiveDialog(true);
   };
 
-  // Archive document with database storage
+  // Archive document with signed PDF and database storage
   const archiveDocument = useCallback(async () => {
     if (!pdfFile || !user) return;
 
     try {
-      // Convert PDF to base64 for storage
+      // Create signed PDF with all signatures
       const arrayBuffer = await pdfFile.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const pages = pdfDoc.getPages();
+
+      // Add signatures to PDF
+      for (const sigPos of signaturePositions) {
+        if (sigPos.signature && sigPos.page <= pages.length) {
+          const page = pages[sigPos.page - 1];
+          const { width, height } = page.getSize();
+          
+          // Convert signature image to PDF
+          const signatureBytes = await fetch(sigPos.signature).then(res => res.arrayBuffer());
+          const signatureImage = await pdfDoc.embedPng(signatureBytes);
+          
+          const sigWidth = (sigPos.width / 100) * width;
+          const sigHeight = (sigPos.height / 100) * height;
+          const x = (sigPos.x / 100) * width;
+          const y = height - (sigPos.y / 100) * height - sigHeight;
+
+          page.drawImage(signatureImage, {
+            x,
+            y,
+            width: sigWidth,
+            height: sigHeight,
+          });
+
+          // Add timestamp
+          if (sigPos.timestamp) {
+            page.drawText(`Signed: ${new Date(sigPos.timestamp).toLocaleString()}`, {
+              x,
+              y: y - 15,
+              size: 8,
+              color: rgb(0.5, 0.5, 0.5),
+            });
+          }
+        }
+      }
+
+      // Generate signed PDF bytes
+      const signedPdfBytes = await pdfDoc.save();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(signedPdfBytes)));
       
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
@@ -243,7 +287,11 @@ export const PDFSigner: React.FC = () => {
       
       // Update local state
       setSignedDocuments(prev => [signedDoc, ...prev]);
-      toast.success("Document archived successfully!");
+      
+      // Reset the signing session
+      resetEverything();
+      
+      toast.success("Signed document archived successfully!");
     } catch (error) {
       console.error("Error archiving document:", error);
       toast.error("Failed to archive document.");
@@ -460,24 +508,14 @@ export const PDFSigner: React.FC = () => {
                       )}
 
                       {canDownload && (
-                        <div className="space-y-2">
-                          <Button
-                            onClick={archiveDocument}
-                            variant="outline"
-                            className="w-full"
-                          >
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Archive Document
-                          </Button>
-                          <Button
-                            onClick={handleDownloadSigned}
-                            variant="success"
-                            className="w-full"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Signed PDF
-                          </Button>
-                        </div>
+                        <Button
+                          onClick={handleDownloadSigned}
+                          variant="success"
+                          className="w-full"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Signed PDF
+                        </Button>
                       )}
                     </div>
                   </CardContent>
@@ -600,6 +638,30 @@ export const PDFSigner: React.FC = () => {
           }}
         />
       )}
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Signed Document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to archive this document with the current signatures? 
+              You can continue adding more signatures if you choose "Continue Signing".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowArchiveDialog(false)}>
+              Continue Signing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowArchiveDialog(false);
+              archiveDocument();
+            }}>
+              Archive Document
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
