@@ -37,6 +37,13 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
+  // Memoize PDF options to prevent unnecessary reloads - MUST be before any early returns
+  const pdfOptions = useMemo(() => ({
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+  }), []);
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setCurrentPage(1);
@@ -46,13 +53,6 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   // Use the blob URL directly for react-pdf
   const pdfUrl = document.signedFileName || document.originalFileName;
-
-  // Memoize PDF options to prevent unnecessary reloads
-  const pdfOptions = useMemo(() => ({
-    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
-  }), []);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
