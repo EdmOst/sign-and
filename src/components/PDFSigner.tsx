@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Download, FileText, Calendar, Search } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, LogOut, Archive } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
 import { toast } from "sonner";
 import { PDFDocument, rgb } from "pdf-lib";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -32,10 +34,12 @@ interface SignedDocument {
   signedAt: Date;
   originalFileName: string;
   signedFileName?: string;
+  signedBlobUrl?: string;
   signatures: SignaturePosition[];
 }
 
 export const PDFSigner: React.FC = () => {
+  const { user, signOut } = useAuth();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
@@ -43,17 +47,7 @@ export const PDFSigner: React.FC = () => {
   const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
   const [showSignaturePad, setShowSignaturePad] = useState<boolean>(false);
   const [currentSigningArea, setCurrentSigningArea] = useState<string | null>(null);
-  const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>(() => {
-    const saved = localStorage.getItem('pdf-signer-documents');
-    if (saved) {
-      const parsedDocs = JSON.parse(saved);
-      return parsedDocs.map((doc: any) => ({
-        ...doc,
-        signedAt: new Date(doc.signedAt),
-      }));
-    }
-    return [];
-  });
+  const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>([]);
   const [showArchive, setShowArchive] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
@@ -68,14 +62,37 @@ export const PDFSigner: React.FC = () => {
     standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
   }), []);
 
-  // Cleanup blob URL on unmount
+  // Load documents from database on component mount
   useEffect(() => {
-    return () => {
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
+    const loadDocuments = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('signed_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading documents:', error);
+        toast.error('Failed to load documents');
+        return;
+      }
+      
+      if (data) {
+        const documentsWithDates = data.map((doc: any) => ({
+          id: doc.id,
+          name: doc.name,
+          signedAt: new Date(doc.signed_at),
+          originalFileName: doc.original_filename,
+          signedBlobUrl: `data:application/pdf;base64,${doc.pdf_data}`,
+          signatures: doc.signatures || []
+        }));
+        setSignedDocuments(documentsWithDates);
       }
     };
-  }, [pdfUrl]);
+    
+    loadDocuments();
+  }, [user]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -189,40 +206,49 @@ export const PDFSigner: React.FC = () => {
     toast.success("Signature added successfully!");
   };
 
-  // Archive document immediately after signing
+  // Archive document with database storage
   const archiveDocument = useCallback(async () => {
-    if (!pdfFile) return;
+    if (!pdfFile || !user) return;
 
     try {
-      // Store the original file as a File object reference for now
-      // This avoids the base64 conversion issues
+      // Convert PDF to base64 for storage
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
         signedAt: new Date(),
-        originalFileName: pdfFile.name, // Store filename instead of data
-        signedFileName: undefined, // Will be set when download is complete
+        originalFileName: pdfFile.name,
+        signedBlobUrl: `data:application/pdf;base64,${base64}`,
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
-      const newDocuments = [signedDoc, ...signedDocuments];
-      setSignedDocuments(newDocuments);
+      // Save to database
+      const { error: insertError } = await supabase
+        .from('documents')
+        .insert({
+          user_id: user.id,
+          name: signedDoc.name,
+          original_filename: signedDoc.originalFileName,
+          pdf_data: base64,
+          signatures: JSON.parse(JSON.stringify(signedDoc.signatures))
+        });
       
-      // Store only metadata in localStorage, not the actual file data
-      const documentsToStore = newDocuments.map(doc => ({
-        ...doc,
-        // Don't store the actual file data in localStorage
-        originalFileName: doc.originalFileName,
-        signedFileName: doc.signedFileName,
-      }));
+      if (insertError) {
+        console.error('Error saving document to database:', insertError);
+        toast.error('Failed to save document to database');
+        return;
+      }
       
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(documentsToStore));
+      // Update local state
+      setSignedDocuments(prev => [signedDoc, ...prev]);
       toast.success("Document archived successfully!");
     } catch (error) {
       console.error("Error archiving document:", error);
       toast.error("Failed to archive document.");
     }
-  }, [pdfFile, signaturePositions, signedDocuments]);
+  }, [pdfFile, signaturePositions, user]);
 
   const handleDownloadSigned = async () => {
     if (!pdfFile) return;
@@ -304,6 +330,25 @@ export const PDFSigner: React.FC = () => {
     }
   };
 
+  const resetEverything = () => {
+    setPdfFile(null);
+    setPdfUrl(null);
+    setNumPages(0);
+    setCurrentPage(1);
+    setSignaturePositions([]);
+    setCurrentSigningArea(null);
+    setShowSignaturePad(false);
+    setIsPlacingSignature(false);
+    setIsMovingSignature(null);
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error('Error signing out');
+    }
+  };
+
   const canDownload = signaturePositions.some(pos => pos.signature);
 
   return (
@@ -316,14 +361,33 @@ export const PDFSigner: React.FC = () => {
               <FileText className="h-8 w-8 text-primary" />
               <h1 className="text-2xl font-bold text-foreground">PDF SIGNER</h1>
             </div>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                Welcome, {user?.email}
+              </span>
               <Button
                 variant="outline"
                 onClick={() => setShowArchive(!showArchive)}
                 className="flex items-center gap-2"
               >
-                <Calendar className="h-4 w-4" />
-                Document Archive
+                <Archive className="h-4 w-4" />
+                Archive ({signedDocuments.length})
+              </Button>
+              <Button
+                variant="outline"
+                onClick={resetEverything}
+                className="flex items-center gap-2"
+              >
+                <Home className="h-4 w-4" />
+                Start Over
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
               </Button>
             </div>
           </div>

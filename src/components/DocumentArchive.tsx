@@ -53,29 +53,6 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
-  // For now, show a message that preview is not available for archived documents
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Preview Not Available
-          </DialogTitle>
-        </DialogHeader>
-        <div className="p-6 text-center">
-          <p className="text-muted-foreground mb-4">
-            Preview is currently only available during the active signing session. 
-            Archived documents can be viewed by re-uploading the original file.
-          </p>
-          <Button onClick={onClose} variant="outline">
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   // Use the blob URL directly for react-pdf
   const pdfUrl = document.signedBlobUrl || document.signedFileName || document.originalFileName;
 
@@ -162,8 +139,23 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
   }, [documents, searchTerm, dateFilter, sortBy]);
 
   const handleDownload = (document: SignedDocument) => {
-    // For now, show a message that download is not available for archived documents
-    toast.error("Download is only available during the current session. Please sign and download documents before closing the browser.");
+    if (!document.signedBlobUrl) {
+      toast.error("Document data not available for download");
+      return;
+    }
+
+    try {
+      const link = window.document.createElement('a');
+      link.href = document.signedBlobUrl;
+      link.download = `signed-${document.name}`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      toast.success(`Downloaded ${document.name}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error("Failed to download document");
+    }
   };
 
   const handlePreview = (document: SignedDocument) => {
@@ -324,10 +316,10 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
                       Preview
                     </Button>
                     <Button
-                      variant="professional"
+                      variant="default"
                       size="sm"
                       onClick={() => handleDownload(document)}
-                      disabled={!document.signedFileName}
+                      disabled={!document.signedBlobUrl}
                       className="flex items-center gap-2"
                     >
                       <Download className="h-4 w-4" />
