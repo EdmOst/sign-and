@@ -23,8 +23,8 @@ interface SignedDocument {
   id: string;
   name: string;
   signedAt: Date;
-  originalFile: ArrayBuffer;
-  signedFile?: ArrayBuffer;
+  originalFile: string; // Base64 string
+  signedFile?: string; // Base64 string
   signatures: SignaturePosition[];
 }
 
@@ -44,10 +44,15 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
-  // Convert ArrayBuffer to Uint8Array to avoid detached ArrayBuffer issues
+  // Convert base64 string to Uint8Array to avoid detached ArrayBuffer issues
   const pdfData = useMemo(() => {
-    const arrayBuffer = document.signedFile || document.originalFile;
-    return new Uint8Array(arrayBuffer);
+    const base64String = document.signedFile || document.originalFile;
+    const binaryString = atob(base64String);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
   }, [document]);
 
   return (
@@ -138,7 +143,13 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
 
   const handleDownload = (document: SignedDocument) => {
     if (document.signedFile) {
-      const blob = new Blob([document.signedFile], { type: "application/pdf" });
+      // Convert base64 to Uint8Array then to Blob
+      const binaryString = atob(document.signedFile);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const link = window.document.createElement("a");
       link.href = url;

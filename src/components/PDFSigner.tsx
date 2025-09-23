@@ -30,8 +30,8 @@ interface SignedDocument {
   id: string;
   name: string;
   signedAt: Date;
-  originalFile: ArrayBuffer;
-  signedFile?: ArrayBuffer;
+  originalFile: string; // Store as base64 string
+  signedFile?: string; // Store as base64 string
   signatures: SignaturePosition[];
 }
 
@@ -46,12 +46,9 @@ export const PDFSigner: React.FC = () => {
     const saved = localStorage.getItem('pdf-signer-documents');
     if (saved) {
       const parsedDocs = JSON.parse(saved);
-      // Convert base64 strings back to ArrayBuffers
       return parsedDocs.map((doc: any) => ({
         ...doc,
         signedAt: new Date(doc.signedAt),
-        originalFile: doc.originalFile ? Uint8Array.from(atob(doc.originalFile), c => c.charCodeAt(0)).buffer : undefined,
-        signedFile: doc.signedFile ? Uint8Array.from(atob(doc.signedFile), c => c.charCodeAt(0)).buffer : undefined,
       }));
     }
     return [];
@@ -220,27 +217,19 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Archive the document - convert ArrayBuffers to base64 for storage
+      // Archive the document - store as base64 strings
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
         signedAt: new Date(),
-        originalFile: arrayBuffer,
-        signedFile: pdfBytes,
+        originalFile: btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))),
+        signedFile: btoa(String.fromCharCode(...new Uint8Array(pdfBytes))),
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
       const newDocuments = [signedDoc, ...signedDocuments];
       setSignedDocuments(newDocuments);
-      
-      // Convert ArrayBuffers to base64 strings for localStorage
-      const documentsForStorage = newDocuments.map(doc => ({
-        ...doc,
-        originalFile: doc.originalFile ? btoa(String.fromCharCode(...new Uint8Array(doc.originalFile))) : undefined,
-        signedFile: doc.signedFile ? btoa(String.fromCharCode(...new Uint8Array(doc.signedFile))) : undefined,
-      }));
-      
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(documentsForStorage));
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
       toast.success("Document signed and downloaded successfully!");
     } catch (error) {
       console.error("Error signing PDF:", error);
