@@ -44,7 +44,17 @@ export const PDFSigner: React.FC = () => {
   const [currentSigningArea, setCurrentSigningArea] = useState<string | null>(null);
   const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>(() => {
     const saved = localStorage.getItem('pdf-signer-documents');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsedDocs = JSON.parse(saved);
+      // Convert base64 strings back to ArrayBuffers
+      return parsedDocs.map((doc: any) => ({
+        ...doc,
+        signedAt: new Date(doc.signedAt),
+        originalFile: doc.originalFile ? Uint8Array.from(atob(doc.originalFile), c => c.charCodeAt(0)).buffer : undefined,
+        signedFile: doc.signedFile ? Uint8Array.from(atob(doc.signedFile), c => c.charCodeAt(0)).buffer : undefined,
+      }));
+    }
+    return [];
   });
   const [showArchive, setShowArchive] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
@@ -210,7 +220,7 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Archive the document
+      // Archive the document - convert ArrayBuffers to base64 for storage
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
@@ -222,7 +232,15 @@ export const PDFSigner: React.FC = () => {
 
       const newDocuments = [signedDoc, ...signedDocuments];
       setSignedDocuments(newDocuments);
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
+      
+      // Convert ArrayBuffers to base64 strings for localStorage
+      const documentsForStorage = newDocuments.map(doc => ({
+        ...doc,
+        originalFile: doc.originalFile ? btoa(String.fromCharCode(...new Uint8Array(doc.originalFile))) : undefined,
+        signedFile: doc.signedFile ? btoa(String.fromCharCode(...new Uint8Array(doc.signedFile))) : undefined,
+      }));
+      
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(documentsForStorage));
       toast.success("Document signed and downloaded successfully!");
     } catch (error) {
       console.error("Error signing PDF:", error);
