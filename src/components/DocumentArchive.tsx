@@ -23,8 +23,8 @@ interface SignedDocument {
   id: string;
   name: string;
   signedAt: Date;
-  originalFile: string; // Base64 string
-  signedFile?: string; // Base64 string
+  originalFileName: string;
+  signedFileName?: string;
   signatures: SignaturePosition[];
 }
 
@@ -44,16 +44,8 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
-  // Convert base64 string to Uint8Array to avoid detached ArrayBuffer issues
-  const pdfData = useMemo(() => {
-    const base64String = document.signedFile || document.originalFile;
-    const binaryString = atob(base64String);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }, [document]);
+  // Use the blob URL directly for react-pdf
+  const pdfUrl = document.signedFileName || document.originalFileName;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -85,8 +77,8 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
                 Next
               </Button>
             </div>
-            <Document 
-              file={pdfData} 
+          <Document 
+            file={pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div>Loading preview...</div>}
               error={<div>Error loading preview</div>}
@@ -142,20 +134,11 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
   }, [documents, searchTerm, dateFilter, sortBy]);
 
   const handleDownload = (document: SignedDocument) => {
-    if (document.signedFile) {
-      // Convert base64 to Uint8Array then to Blob
-      const binaryString = atob(document.signedFile);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
+    if (document.signedFileName) {
       const link = window.document.createElement("a");
-      link.href = url;
+      link.href = document.signedFileName;
       link.download = `signed-${document.name}`;
       link.click();
-      URL.revokeObjectURL(url);
     }
   };
 
@@ -320,7 +303,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
                       variant="professional"
                       size="sm"
                       onClick={() => handleDownload(document)}
-                      disabled={!document.signedFile}
+                      disabled={!document.signedFileName}
                       className="flex items-center gap-2"
                     >
                       <Download className="h-4 w-4" />

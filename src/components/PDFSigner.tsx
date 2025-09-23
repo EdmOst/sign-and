@@ -30,8 +30,8 @@ interface SignedDocument {
   id: string;
   name: string;
   signedAt: Date;
-  originalFile: string; // Store as base64 string
-  signedFile?: string; // Store as base64 string
+  originalFileName: string;
+  signedFileName?: string;
   signatures: SignaturePosition[];
 }
 
@@ -217,13 +217,18 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Archive the document - store as base64 strings
+      // Archive the document - create blob URLs for the PDF files
+      const originalBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const signedBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const originalUrl = URL.createObjectURL(originalBlob);
+      const signedUrl = URL.createObjectURL(signedBlob);
+
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
         signedAt: new Date(),
-        originalFile: btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))),
-        signedFile: btoa(String.fromCharCode(...new Uint8Array(pdfBytes))),
+        originalFileName: originalUrl,
+        signedFileName: signedUrl,
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
