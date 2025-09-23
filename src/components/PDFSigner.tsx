@@ -508,16 +508,28 @@ export const PDFSigner: React.FC = () => {
                         </div>
                       )}
 
-                      {canDownload && (
-                        <Button
-                          onClick={handleDownloadSigned}
-                          variant="success"
-                          className="w-full"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download Signed PDF
-                        </Button>
-                      )}
+                       {canDownload && (
+                         <>
+                           <Button
+                             onClick={handleDownloadSigned}
+                             variant="success"
+                             className="w-full"
+                           >
+                             <Download className="h-4 w-4 mr-2" />
+                             Download Signed PDF
+                           </Button>
+                           {!isPlacingSignature && !isMovingSignature && (
+                             <Button
+                               onClick={archiveDocument}
+                               variant="secondary"
+                               className="w-full"
+                             >
+                               <Archive className="h-4 w-4 mr-2" />
+                               Archive Document
+                             </Button>
+                           )}
+                         </>
+                       )}
                     </div>
                   </CardContent>
                 </Card>
@@ -570,10 +582,10 @@ export const PDFSigner: React.FC = () => {
                     <div className="relative">
                       <div 
                         ref={pageRef}
-                        className={cn(
-                          "relative inline-block",
-                          isPlacingSignature || isMovingSignature ? 'cursor-crosshair' : 'cursor-default'
-                        )}
+                         className={cn(
+                           "relative inline-block",
+                           isPlacingSignature || isMovingSignature ? 'cursor-default' : 'cursor-default'
+                         )}
                         onClick={handlePageClick}
                       >
                           <Document 
