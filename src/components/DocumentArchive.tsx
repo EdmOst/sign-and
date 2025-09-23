@@ -44,7 +44,11 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
-  const pdfBlob = new Blob([document.signedFile || document.originalFile], { type: 'application/pdf' });
+  // Convert ArrayBuffer to Uint8Array to avoid detached ArrayBuffer issues
+  const pdfData = useMemo(() => {
+    const arrayBuffer = document.signedFile || document.originalFile;
+    return new Uint8Array(arrayBuffer);
+  }, [document]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -77,7 +81,7 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
               </Button>
             </div>
             <Document 
-              file={pdfBlob} 
+              file={pdfData} 
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div>Loading preview...</div>}
               error={<div>Error loading preview</div>}
