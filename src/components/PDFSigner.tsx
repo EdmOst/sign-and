@@ -392,8 +392,16 @@ export const PDFSigner: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
+    try {
+      const { error } = await signOut();
+      if (error) {
+        toast.error('Error signing out');
+      } else {
+        toast.success('Signed out successfully');
+        // Navigation will be handled by the auth state listener in App.tsx
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
       toast.error('Error signing out');
     }
   };

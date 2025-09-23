@@ -53,8 +53,23 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
-  // Use the blob URL directly for react-pdf
-  const pdfUrl = document.signedBlobUrl || document.signedFileName || document.originalFileName;
+  // Use the blob URL (data URL) for react-pdf with proper error handling
+  const pdfUrl = document.signedBlobUrl;
+  
+  if (!pdfUrl) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Preview Not Available</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">Document preview is not available</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -86,11 +101,28 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
                 Next
               </Button>
             </div>
-          <Document 
-            file={pdfUrl}
+            <Document 
+              file={pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
-              loading={<div>Loading preview...</div>}
-              error={<div>Error loading preview</div>}
+              onLoadError={(error) => {
+                console.error('PDF load error:', error);
+              }}
+              loading={
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p>Loading preview...</p>
+                  </div>
+                </div>
+              }
+              error={
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center text-muted-foreground">
+                    <p>Error loading preview</p>
+                    <p className="text-sm">The document may be corrupted or invalid</p>
+                  </div>
+                </div>
+              }
               options={pdfOptions}
             >
               <Page

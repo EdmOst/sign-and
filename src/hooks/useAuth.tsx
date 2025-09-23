@@ -31,15 +31,23 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      // Clear local state first
+      console.log('Starting sign out process');
+      
+      // Attempt to sign out from Supabase first
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      // Clear local state regardless of error
       setUser(null);
       setSession(null);
+      setLoading(false);
       
-      // Attempt to sign out from Supabase
-      const { error } = await supabase.auth.signOut();
+      // Clear any local storage
+      localStorage.removeItem('pdf-signer-documents');
       
-      // Even if there's an error (like session not found), we still want to clear local state
-      if (error && error.message !== "Session from session_id claim in JWT does not exist") {
+      console.log('Sign out completed', error ? 'with error:' : 'successfully', error);
+      
+      // Don't treat session not found as an error
+      if (error && !error.message?.includes("Session") && !error.message?.includes("session")) {
         console.error("Error signing out:", error);
         return { error };
       }
@@ -50,6 +58,7 @@ export const useAuth = () => {
       // Still clear local state even if there's an unexpected error
       setUser(null);
       setSession(null);
+      setLoading(false);
       return { error: null };
     }
   };
