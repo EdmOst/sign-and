@@ -137,10 +137,11 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
   }, [documents, searchTerm, dateFilter, sortBy]);
 
   const handleDownload = (document: SignedDocument) => {
-    if (document.signedFileName) {
+    const fileUrl = document.signedFileName || document.originalFileName;
+    if (fileUrl) {
       const link = window.document.createElement("a");
-      link.href = document.signedFileName;
-      link.download = `signed-${document.name}`;
+      link.href = fileUrl;
+      link.download = `${document.signedFileName ? 'signed-' : ''}${document.name}`;
       link.click();
     }
   };

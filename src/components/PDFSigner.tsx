@@ -195,14 +195,16 @@ export const PDFSigner: React.FC = () => {
 
     try {
       const arrayBuffer = await pdfFile.arrayBuffer();
-      const originalBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
-      const originalUrl = URL.createObjectURL(originalBlob);
+      
+      // Convert to base64 for persistent storage
+      const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const dataUrl = `data:application/pdf;base64,${base64Data}`;
 
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
         signedAt: new Date(),
-        originalFileName: originalUrl,
+        originalFileName: dataUrl,
         signedFileName: undefined, // Will be set when download is complete
         signatures: signaturePositions.filter(sig => sig.signature),
       };
@@ -270,13 +272,13 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Update the archived document with signed PDF blob URL
-      const signedBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const signedUrl = URL.createObjectURL(signedBlob);
+      // Update the archived document with signed PDF as base64
+      const base64SignedData = btoa(String.fromCharCode(...pdfBytes));
+      const signedDataUrl = `data:application/pdf;base64,${base64SignedData}`;
       
       const updatedDocuments = signedDocuments.map(doc => {
         if (doc.name === pdfFile.name && !doc.signedFileName) {
-          return { ...doc, signedFileName: signedUrl };
+          return { ...doc, signedFileName: signedDataUrl };
         }
         return doc;
       });
