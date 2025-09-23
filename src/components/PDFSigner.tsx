@@ -388,6 +388,7 @@ export const PDFSigner: React.FC = () => {
     setShowSignaturePad(false);
     setIsPlacingSignature(false);
     setIsMovingSignature(null);
+    setShowArchive(false); // Close archive view
   };
 
   const handleSignOut = async () => {
