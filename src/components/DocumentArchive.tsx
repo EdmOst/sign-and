@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Document, Page } from "react-pdf";
 import { ArrowLeft, Search, Download, Calendar, FileText, Filter, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface SignaturePosition {
   id: string;
@@ -25,6 +26,7 @@ interface SignedDocument {
   signedAt: Date;
   originalFileName: string;
   signedFileName?: string;
+  signedBlobUrl?: string;
   signatures: SignaturePosition[];
 }
 
@@ -51,8 +53,31 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
 
   if (!document) return null;
 
+  // For now, show a message that preview is not available for archived documents
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Preview Not Available
+          </DialogTitle>
+        </DialogHeader>
+        <div className="p-6 text-center">
+          <p className="text-muted-foreground mb-4">
+            Preview is currently only available during the active signing session. 
+            Archived documents can be viewed by re-uploading the original file.
+          </p>
+          <Button onClick={onClose} variant="outline">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   // Use the blob URL directly for react-pdf
-  const pdfUrl = document.signedFileName || document.originalFileName;
+  const pdfUrl = document.signedBlobUrl || document.signedFileName || document.originalFileName;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -137,13 +162,8 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ documents, onC
   }, [documents, searchTerm, dateFilter, sortBy]);
 
   const handleDownload = (document: SignedDocument) => {
-    const fileUrl = document.signedFileName || document.originalFileName;
-    if (fileUrl) {
-      const link = window.document.createElement("a");
-      link.href = fileUrl;
-      link.download = `${document.signedFileName ? 'signed-' : ''}${document.name}`;
-      link.click();
-    }
+    // For now, show a message that download is not available for archived documents
+    toast.error("Download is only available during the current session. Please sign and download documents before closing the browser.");
   };
 
   const handlePreview = (document: SignedDocument) => {

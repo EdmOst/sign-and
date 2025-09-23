@@ -194,24 +194,29 @@ export const PDFSigner: React.FC = () => {
     if (!pdfFile) return;
 
     try {
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      
-      // Convert to base64 for persistent storage
-      const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      const dataUrl = `data:application/pdf;base64,${base64Data}`;
-
+      // Store the original file as a File object reference for now
+      // This avoids the base64 conversion issues
       const signedDoc: SignedDocument = {
         id: `doc-${Date.now()}`,
         name: pdfFile.name,
         signedAt: new Date(),
-        originalFileName: dataUrl,
+        originalFileName: pdfFile.name, // Store filename instead of data
         signedFileName: undefined, // Will be set when download is complete
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
       const newDocuments = [signedDoc, ...signedDocuments];
       setSignedDocuments(newDocuments);
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
+      
+      // Store only metadata in localStorage, not the actual file data
+      const documentsToStore = newDocuments.map(doc => ({
+        ...doc,
+        // Don't store the actual file data in localStorage
+        originalFileName: doc.originalFileName,
+        signedFileName: doc.signedFileName,
+      }));
+      
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(documentsToStore));
       toast.success("Document archived successfully!");
     } catch (error) {
       console.error("Error archiving document:", error);
@@ -272,19 +277,26 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Update the archived document with signed PDF as base64
-      const base64SignedData = btoa(String.fromCharCode(...pdfBytes));
-      const signedDataUrl = `data:application/pdf;base64,${base64SignedData}`;
+      // Create a blob URL for the signed document that persists
+      const signedBlob = new Blob([pdfBytes], { type: "application/pdf" });
+      const signedBlobUrl = URL.createObjectURL(signedBlob);
       
       const updatedDocuments = signedDocuments.map(doc => {
         if (doc.name === pdfFile.name && !doc.signedFileName) {
-          return { ...doc, signedFileName: signedDataUrl };
+          return { ...doc, signedFileName: `signed-${pdfFile.name}`, signedBlobUrl: signedBlobUrl };
         }
         return doc;
       });
       
       setSignedDocuments(updatedDocuments);
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(updatedDocuments));
+      
+      // Store updated metadata
+      const documentsToStore = updatedDocuments.map(doc => ({
+        ...doc,
+        // Don't store blob URLs in localStorage as they expire
+        signedBlobUrl: undefined,
+      }));
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(documentsToStore));
       toast.success("Document downloaded successfully!");
     } catch (error) {
       console.error("Error signing PDF:", error);
