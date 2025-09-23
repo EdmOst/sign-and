@@ -189,6 +189,34 @@ export const PDFSigner: React.FC = () => {
     toast.success("Signature added successfully!");
   };
 
+  // Archive document immediately after signing
+  const archiveDocument = useCallback(async () => {
+    if (!pdfFile) return;
+
+    try {
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const originalBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const originalUrl = URL.createObjectURL(originalBlob);
+
+      const signedDoc: SignedDocument = {
+        id: `doc-${Date.now()}`,
+        name: pdfFile.name,
+        signedAt: new Date(),
+        originalFileName: originalUrl,
+        signedFileName: undefined, // Will be set when download is complete
+        signatures: signaturePositions.filter(sig => sig.signature),
+      };
+
+      const newDocuments = [signedDoc, ...signedDocuments];
+      setSignedDocuments(newDocuments);
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
+      toast.success("Document archived successfully!");
+    } catch (error) {
+      console.error("Error archiving document:", error);
+      toast.error("Failed to archive document.");
+    }
+  }, [pdfFile, signaturePositions, signedDocuments]);
+
   const handleDownloadSigned = async () => {
     if (!pdfFile) return;
 
@@ -242,25 +270,20 @@ export const PDFSigner: React.FC = () => {
       
       URL.revokeObjectURL(url);
 
-      // Archive the document - create blob URLs for the PDF files
-      const originalBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      // Update the archived document with signed PDF blob URL
       const signedBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const originalUrl = URL.createObjectURL(originalBlob);
       const signedUrl = URL.createObjectURL(signedBlob);
-
-      const signedDoc: SignedDocument = {
-        id: `doc-${Date.now()}`,
-        name: pdfFile.name,
-        signedAt: new Date(),
-        originalFileName: originalUrl,
-        signedFileName: signedUrl,
-        signatures: signaturePositions.filter(sig => sig.signature),
-      };
-
-      const newDocuments = [signedDoc, ...signedDocuments];
-      setSignedDocuments(newDocuments);
-      localStorage.setItem('pdf-signer-documents', JSON.stringify(newDocuments));
-      toast.success("Document signed and downloaded successfully!");
+      
+      const updatedDocuments = signedDocuments.map(doc => {
+        if (doc.name === pdfFile.name && !doc.signedFileName) {
+          return { ...doc, signedFileName: signedUrl };
+        }
+        return doc;
+      });
+      
+      setSignedDocuments(updatedDocuments);
+      localStorage.setItem('pdf-signer-documents', JSON.stringify(updatedDocuments));
+      toast.success("Document downloaded successfully!");
     } catch (error) {
       console.error("Error signing PDF:", error);
       toast.error("Failed to sign PDF. Please try again.");
@@ -359,14 +382,24 @@ export const PDFSigner: React.FC = () => {
                       )}
 
                       {canDownload && (
-                        <Button
-                          onClick={handleDownloadSigned}
-                          variant="success"
-                          className="w-full"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download Signed PDF
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            onClick={archiveDocument}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Archive Document
+                          </Button>
+                          <Button
+                            onClick={handleDownloadSigned}
+                            variant="success"
+                            className="w-full"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Signed PDF
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
