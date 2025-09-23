@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { X, Move } from "lucide-react";
 
@@ -18,20 +18,53 @@ interface SignatureAreaProps {
   onClick: () => void;
   onDelete?: () => void;
   onMove?: () => void;
+  onDrag?: (deltaX: number, deltaY: number) => void;
 }
 
-export const SignatureArea: React.FC<SignatureAreaProps> = ({ position, onClick, onDelete, onMove }) => {
+export const SignatureArea: React.FC<SignatureAreaProps> = ({ position, onClick, onDelete, onMove, onDrag }) => {
   const { x, y, width, height, signature, timestamp } = position;
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const isSigned = !!signature;
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isSigned || !onDrag) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current || !onDrag) return;
+      
+      const deltaX = e.clientX - dragStartRef.current.x;
+      const deltaY = e.clientY - dragStartRef.current.y;
+      onDrag(deltaX, deltaY);
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      dragStartRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   return (
     <div
       className={cn(
-        "absolute border-2 border-dashed border-signature-area rounded cursor-pointer transition-all duration-200 group",
+        "absolute border-2 border-dashed border-signature-area rounded transition-all duration-200 group",
         "hover:border-signature-area-hover hover:bg-signature-area/10",
-        signature ? "bg-success/10 border-success" : "bg-signature-area/5"
+        signature ? "bg-success/10 border-success cursor-pointer" : "bg-signature-area/5",
+        !signature && onDrag ? "cursor-move" : "cursor-pointer",
+        isDragging && "opacity-80"
       )}
       style={{
         left: `${x}%`,
@@ -39,38 +72,23 @@ export const SignatureArea: React.FC<SignatureAreaProps> = ({ position, onClick,
         width: `${width}%`,
         height: `${height}%`,
       }}
-      onClick={onClick}
+      onClick={!isDragging ? onClick : undefined}
+      onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Action buttons for unsigned areas */}
-      {!isSigned && isHovered && (onDelete || onMove) && (
-        <div className="absolute -top-8 left-0 flex gap-1 z-10">
-          {onMove && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMove();
-              }}
-              className="bg-professional text-professional-foreground p-1 rounded-sm hover:bg-professional/90 transition-colors"
-              title="Move signature area"
-            >
-              <Move className="h-3 w-3" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="bg-destructive text-destructive-foreground p-1 rounded-sm hover:bg-destructive/90 transition-colors"
-              title="Remove signature area"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+      {/* Delete button for unsigned areas */}
+      {!isSigned && onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground w-6 h-6 rounded-full hover:bg-destructive/90 transition-colors flex items-center justify-center z-10"
+          title="Remove signature area"
+        >
+          <X className="h-3 w-3" />
+        </button>
       )}
 
       {signature ? (

@@ -81,11 +81,18 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div>Loading preview...</div>}
               error={<div>Error loading preview</div>}
+              options={{
+                cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+                cMapPacked: true,
+                standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+              }}
             >
               <Page
                 pageNumber={currentPage}
                 width={Math.min(600, window.innerWidth - 200)}
                 className="shadow-soft border rounded"
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
               />
             </Document>
           </div>

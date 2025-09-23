@@ -121,11 +121,25 @@ export const PDFSigner: React.FC = () => {
     toast.success("Signature area removed!");
   };
 
-  const handleMoveSignatureArea = (areaId: string) => {
-    setIsMovingSignature(areaId);
-    setIsPlacingSignature(false);
-    toast.info("Click on document to move signature area");
-  };
+  const handleDragSignatureArea = useCallback((areaId: string, deltaX: number, deltaY: number) => {
+    if (!pageRef.current) return;
+    
+    const rect = pageRef.current.getBoundingClientRect();
+    const deltaXPercent = (deltaX / rect.width) * 100;
+    const deltaYPercent = (deltaY / rect.height) * 100;
+    
+    setSignaturePositions(prev =>
+      prev.map(area =>
+        area.id === areaId
+          ? { 
+              ...area, 
+              x: Math.max(0, Math.min(100 - area.width, area.x + deltaXPercent)),
+              y: Math.max(0, Math.min(100 - area.height, area.y + deltaYPercent))
+            }
+          : area
+      )
+    );
+  }, []);
 
   const handleSignatureComplete = (signatureDataUrl: string) => {
     if (!currentSigningArea) return;
@@ -375,19 +389,26 @@ export const PDFSigner: React.FC = () => {
                         )}
                         onClick={handlePageClick}
                       >
-                        <Document 
-                          file={pdfFile} 
-                          onLoadSuccess={onDocumentLoadSuccess}
-                          onLoadError={onDocumentLoadError}
-                          loading={<div>Loading PDF...</div>}
-                          error={<div>Error loading PDF. Please try another file.</div>}
-                        >
-                          <Page
-                            pageNumber={currentPage}
-                            width={Math.min(800, window.innerWidth - 400)}
-                            className="shadow-soft border rounded"
-                          />
-                        </Document>
+                          <Document 
+                            file={pdfFile} 
+                            onLoadSuccess={onDocumentLoadSuccess}
+                            onLoadError={onDocumentLoadError}
+                            loading={<div>Loading PDF...</div>}
+                            error={<div>Error loading PDF. Please try another file.</div>}
+                            options={{
+                              cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+                              cMapPacked: true,
+                              standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+                            }}
+                          >
+                            <Page
+                              pageNumber={currentPage}
+                              width={Math.min(800, window.innerWidth - 400)}
+                              className="shadow-soft border rounded"
+                              renderTextLayer={false}
+                              renderAnnotationLayer={false}
+                            />
+                          </Document>
                         
                         {/* Signature Areas */}
                         {signaturePositions
@@ -398,7 +419,7 @@ export const PDFSigner: React.FC = () => {
                               position={position}
                               onClick={() => handleSignatureAreaClick(position.id)}
                               onDelete={!position.signature ? () => handleDeleteSignatureArea(position.id) : undefined}
-                              onMove={!position.signature ? () => handleMoveSignatureArea(position.id) : undefined}
+                              onDrag={!position.signature ? (deltaX, deltaY) => handleDragSignatureArea(position.id, deltaX, deltaY) : undefined}
                             />
                           ))}
                       </div>
