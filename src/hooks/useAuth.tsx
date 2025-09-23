@@ -11,7 +11,6 @@ export const useAuth = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -20,7 +19,6 @@ export const useAuth = () => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -31,8 +29,6 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      console.log('Starting sign out process');
-      
       // Attempt to sign out from Supabase first
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       
@@ -43,8 +39,6 @@ export const useAuth = () => {
       
       // Clear any local storage
       localStorage.removeItem('pdf-signer-documents');
-      
-      console.log('Sign out completed', error ? 'with error:' : 'successfully', error);
       
       // Don't treat session not found as an error
       if (error && !error.message?.includes("Session") && !error.message?.includes("session")) {

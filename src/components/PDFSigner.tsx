@@ -40,7 +40,6 @@ interface SignedDocument {
 }
 
 export const PDFSigner: React.FC = () => {
-  console.log('PDFSigner component rendering');
   const { user, signOut } = useAuth();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
