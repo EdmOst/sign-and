@@ -47,6 +47,13 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
   // Use the blob URL directly for react-pdf
   const pdfUrl = document.signedFileName || document.originalFileName;
 
+  // Memoize PDF options to prevent unnecessary reloads
+  const pdfOptions = useMemo(() => ({
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+  }), []);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[80vh]">
@@ -82,11 +89,7 @@ const PreviewModal: React.FC<{ document: SignedDocument | null; isOpen: boolean;
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div>Loading preview...</div>}
               error={<div>Error loading preview</div>}
-              options={{
-                cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
-                cMapPacked: true,
-                standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
-              }}
+              options={pdfOptions}
             >
               <Page
                 pageNumber={currentPage}

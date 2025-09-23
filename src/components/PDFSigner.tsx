@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +60,13 @@ export const PDFSigner: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
+
+  // Memoize PDF options to prevent unnecessary reloads
+  const pdfOptions = useMemo(() => ({
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+  }), []);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -425,11 +432,7 @@ export const PDFSigner: React.FC = () => {
                             onLoadError={onDocumentLoadError}
                             loading={<div>Loading PDF...</div>}
                             error={<div>Error loading PDF. Please try another file.</div>}
-                            options={{
-                              cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
-                              cMapPacked: true,
-                              standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
-                            }}
+                            options={pdfOptions}
                           >
                             <Page
                               pageNumber={currentPage}
