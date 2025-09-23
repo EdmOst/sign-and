@@ -11,6 +11,7 @@ export const useAuth = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -19,6 +20,7 @@ export const useAuth = () => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -28,12 +30,28 @@ export const useAuth = () => {
   }, []);
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error);
-      return { error };
+    try {
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      
+      // Attempt to sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      // Even if there's an error (like session not found), we still want to clear local state
+      if (error && error.message !== "Session from session_id claim in JWT does not exist") {
+        console.error("Error signing out:", error);
+        return { error };
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error("Unexpected error during sign out:", error);
+      // Still clear local state even if there's an unexpected error
+      setUser(null);
+      setSession(null);
+      return { error: null };
     }
-    return { error: null };
   };
 
   return {
