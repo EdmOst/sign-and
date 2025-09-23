@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +37,7 @@ interface SignedDocument {
 
 export const PDFSigner: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [signaturePositions, setSignaturePositions] = useState<SignaturePosition[]>([]);
@@ -60,6 +61,15 @@ export const PDFSigner: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
 
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setCurrentPage(1);
@@ -75,7 +85,15 @@ export const PDFSigner: React.FC = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === "application/pdf") {
+      // Clean up previous URL
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+      
+      // Create a blob URL immediately to avoid detached ArrayBuffer issues
+      const url = URL.createObjectURL(file);
       setPdfFile(file);
+      setPdfUrl(url);
     } else {
       toast.error("Please select a valid PDF file");
     }
@@ -308,7 +326,7 @@ export const PDFSigner: React.FC = () => {
               </Card>
 
               {/* Signature Tools */}
-              {pdfFile && (
+              {pdfUrl && (
                 <Card className="shadow-medium">
                   <CardContent className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Signature Tools</h3>
@@ -391,7 +409,7 @@ export const PDFSigner: React.FC = () => {
             <div className="lg:col-span-3">
               <Card className="shadow-large">
                 <CardContent className="p-6">
-                  {pdfFile ? (
+                  {pdfUrl ? (
                     <div className="relative">
                       <div 
                         ref={pageRef}
@@ -402,7 +420,7 @@ export const PDFSigner: React.FC = () => {
                         onClick={handlePageClick}
                       >
                           <Document 
-                            file={pdfFile} 
+                            file={pdfUrl} 
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading={<div>Loading PDF...</div>}
