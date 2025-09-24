@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut, FolderOpen, RefreshCw, X } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -61,6 +61,10 @@ export const PDFSigner: React.FC = () => {
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
+  const [isLoadingSignedDocuments, setIsLoadingSignedDocuments] = useState(true);
+  const [virtualPrinterFolder, setVirtualPrinterFolder] = useState<FileSystemDirectoryHandle | null>(null);
+  const [isWatchingFolder, setIsWatchingFolder] = useState(false);
+  const [collectedFiles, setCollectedFiles] = useState<File[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -424,6 +428,88 @@ export const PDFSigner: React.FC = () => {
     setShowArchive(false); // Close archive view
   };
 
+  // Virtual Printer Collection Functions
+  const setupVirtualPrinterFolder = async () => {
+    try {
+      // Check if File System Access API is supported
+      if (!('showDirectoryPicker' in window)) {
+        toast.error("Your browser doesn't support folder access. Please use Chrome, Edge, or another Chromium-based browser.");
+        return;
+      }
+
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite'
+      });
+      
+      setVirtualPrinterFolder(dirHandle);
+      toast.success(`Virtual printer folder set: ${dirHandle.name}`);
+      
+      // Start watching the folder
+      startFolderWatching(dirHandle);
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Error setting up virtual printer folder:', error);
+        toast.error("Failed to set up virtual printer folder");
+      }
+    }
+  };
+
+  const startFolderWatching = async (dirHandle: FileSystemDirectoryHandle) => {
+    setIsWatchingFolder(true);
+    toast.success("Started monitoring folder for new PDF files");
+    
+    // Note: Real-time folder watching requires a service worker or polling
+    // For now, we'll implement a manual check button
+  };
+
+  const checkForNewFiles = async () => {
+    if (!virtualPrinterFolder) return;
+
+    try {
+      const newFiles: File[] = [];
+      
+      // TypeScript doesn't have full File System Access API types yet
+      const dirHandle = virtualPrinterFolder as any;
+      
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'file' && name.toLowerCase().endsWith('.pdf')) {
+          const file = await handle.getFile();
+          
+          // Check if we've already collected this file
+          const isAlreadyCollected = collectedFiles.some(f => 
+            f.name === file.name && f.lastModified === file.lastModified
+          );
+          
+          if (!isAlreadyCollected) {
+            newFiles.push(file);
+          }
+        }
+      }
+
+      if (newFiles.length > 0) {
+        setCollectedFiles(prev => [...prev, ...newFiles]);
+        toast.success(`Found ${newFiles.length} new PDF file(s)`);
+      }
+    } catch (error) {
+      console.error('Error checking for new files:', error);
+      toast.error("Failed to check for new files");
+    }
+  };
+
+  const loadCollectedFile = (file: File) => {
+    setPdfFile(file);
+    const url = URL.createObjectURL(file);
+    setPdfUrl(url);
+    setNumPages(0);
+    setCurrentPage(1);
+    setSignaturePositions([]);
+    toast.success(`Loaded: ${file.name}`);
+  };
+
+  const removeCollectedFile = (index: number) => {
+    setCollectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSignOut = async () => {
     try {
       const { error } = await signOut();
@@ -544,6 +630,92 @@ export const PDFSigner: React.FC = () => {
                       <p className="text-sm text-muted-foreground">
                         Selected: {pdfFile.name}
                       </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Virtual Printer Collection */}
+              <Card className="shadow-medium">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Virtual Printer Collection</h3>
+                  <div className="space-y-4">
+                    {!virtualPrinterFolder ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Set up automatic PDF collection from virtual printer output folder
+                        </p>
+                        <Button
+                          onClick={setupVirtualPrinterFolder}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          <FolderOpen className="h-4 w-4 mr-2" />
+                          Select Printer Output Folder
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Monitoring:</span>
+                          <span className="text-sm text-muted-foreground">{virtualPrinterFolder.name}</span>
+                        </div>
+                        
+                        <Button
+                          onClick={checkForNewFiles}
+                          className="w-full"
+                          variant="secondary"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Check for New Files
+                        </Button>
+
+                        {collectedFiles.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              Collected Files ({collectedFiles.length})
+                            </Label>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {collectedFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                                  <span className="truncate flex-1 mr-2">{file.name}</span>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => loadCollectedFile(file)}
+                                      className="h-6 w-6 p-0"
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => removeCollectedFile(index)}
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={() => {
+                            setVirtualPrinterFolder(null);
+                            setIsWatchingFolder(false);
+                            setCollectedFiles([]);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                        >
+                          Stop Monitoring
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
