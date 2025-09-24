@@ -299,6 +299,22 @@ export const PDFSigner: React.FC = () => {
         toast.error('Failed to save document to database');
         return;
       }
+
+      // Log the activity
+      await supabase
+        .from('user_activity_logs')
+        .insert({
+          user_id: user.id,
+          user_email: profile?.email || user.email,
+          user_name: profile?.display_name || user.email,
+          action_type: 'DOCUMENT_SIGN',
+          action_description: `Signed document: ${signedDoc.originalFileName}`,
+          metadata: { 
+            document_name: signedDoc.originalFileName, 
+            signatures_count: signedDoc.signatures.length,
+            signed_at: new Date().toISOString()
+          }
+        });
       
       // Update local state
       setSignedDocuments(prev => [signedDoc, ...prev]);

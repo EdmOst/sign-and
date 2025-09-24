@@ -104,6 +104,18 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
 
         if (updateError) {
           console.error('Error updating preview tracking:', updateError);
+        } else {
+          // Log the activity
+          await supabase
+            .from('user_activity_logs')
+            .insert({
+              user_id: user.id,
+              user_email: profile?.email || user.email,
+              user_name: profile?.display_name || user.email,
+              action_type: 'DOCUMENT_PREVIEW',
+              action_description: `Previewed document: ${document.original_filename}`,
+              metadata: { document_id: document.id, document_name: document.original_filename }
+            });
         }
       }
     } catch (error) {
@@ -137,6 +149,18 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
 
         if (updateError) {
           console.error('Error updating download tracking:', updateError);
+        } else {
+          // Log the activity
+          await supabase
+            .from('user_activity_logs')
+            .insert({
+              user_id: user.id,
+              user_email: profile?.email || user.email,
+              user_name: profile?.display_name || user.email,
+              action_type: 'DOCUMENT_DOWNLOAD',
+              action_description: `Downloaded document: ${document.original_filename}`,
+              metadata: { document_id: document.id, document_name: document.original_filename, download_method: 'archive' }
+            });
         }
       }
 

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ interface User {
 }
 
 export const AdminSettings: React.FC = () => {
+  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [addUserLoading, setAddUserLoading] = useState(false);
@@ -33,30 +35,35 @@ export const AdminSettings: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // First get all profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          user_id,
-          email,
-          display_name,
-          created_at,
-          user_roles!inner(role)
-        `);
+        .select("id, user_id, email, display_name, created_at");
 
-      if (error) {
-        console.error("Error fetching users:", error);
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
         toast.error("Failed to fetch users");
         return;
       }
 
-      const usersWithRoles = data.map((user: any) => ({
-        id: user.user_id,
-        email: user.email,
-        display_name: user.display_name,
-        role: user.user_roles.role,
-        created_at: user.created_at,
-      }));
+      // Then get roles for each user
+      const usersWithRoles = await Promise.all(
+        (profiles || []).map(async (profile) => {
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", profile.user_id)
+            .maybeSingle();
+
+          return {
+            id: profile.user_id,
+            email: profile.email,
+            display_name: profile.display_name,
+            role: roleData?.role || "user",
+            created_at: profile.created_at,
+          };
+        })
+      );
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -78,7 +85,7 @@ export const AdminSettings: React.FC = () => {
     const password = formData.get("password") as string;
 
     try {
-      // Create user account
+      // Create user account with admin privileges
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
         password,
@@ -89,12 +96,17 @@ export const AdminSettings: React.FC = () => {
       });
 
       if (authError) {
+        console.error("Auth error:", authError);
         toast.error(`Failed to create user: ${authError.message}`);
         return;
       }
 
       if (authData.user) {
-        // Update user role if not default
+        // The trigger should automatically create the profile and default user role
+        // Wait a moment for the trigger to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Update the role if it's admin
         if (role === "admin") {
           const { error: roleError } = await supabase
             .from("user_roles")
@@ -103,12 +115,25 @@ export const AdminSettings: React.FC = () => {
 
           if (roleError) {
             console.error("Error updating user role:", roleError);
+            toast.error("User created but failed to set admin role");
           }
         }
 
+        // Log the activity
+        await supabase
+          .from('user_activity_logs')
+          .insert({
+            user_id: authData.user.id,
+            user_email: email,
+            user_name: displayName,
+            action_type: 'USER_CREATED',
+            action_description: `Admin created new user account`,
+            metadata: { created_by: user?.email, assigned_role: role }
+          });
+
         toast.success("User created successfully");
         setIsAddUserOpen(false);
-        fetchUsers();
+        await fetchUsers();
         (e.target as HTMLFormElement).reset();
       }
     } catch (error) {
@@ -142,6 +167,9 @@ export const AdminSettings: React.FC = () => {
 
   const handleRoleChange = async (userId: string, newRole: "admin" | "user") => {
     try {
+      const targetUser = users.find(u => u.id === userId);
+      const oldRole = targetUser?.role;
+
       const { error } = await supabase
         .from("user_roles")
         .update({ role: newRole })
@@ -152,8 +180,20 @@ export const AdminSettings: React.FC = () => {
         return;
       }
 
+      // Log the activity
+      await supabase
+        .from('user_activity_logs')
+        .insert({
+          user_id: userId,
+          user_email: targetUser?.email,
+          user_name: targetUser?.display_name,
+          action_type: 'USER_ROLE_CHANGE',
+          action_description: `Role changed from ${oldRole} to ${newRole}`,
+          metadata: { changed_by: user?.email, old_role: oldRole, new_role: newRole }
+        });
+
       toast.success("User role updated successfully");
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
       console.error("Error updating user role:", error);
       toast.error("Failed to update user role");
