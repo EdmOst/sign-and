@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Clock, Calendar, Mail, Download, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Clock, Settings, Save, Loader2, Calendar, FileText, CheckCircle, XCircle } from "lucide-react";
-import { format } from "date-fns";
+
+interface BackupConfig {
+  id: string;
+  enabled: boolean;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  include_metadata: boolean;
+  email_notifications: string[];
+  last_backup_at?: string;
+  next_backup_at?: string;
+}
 
 interface BackupLog {
   id: string;
@@ -24,71 +33,101 @@ interface BackupLog {
   created_at: string;
 }
 
-interface BackupConfig {
-  id: string;
-  enabled: boolean;
-  frequency: 'daily' | 'weekly' | 'monthly';
-  include_metadata: boolean;
-  email_notifications: string[];
-  last_backup_at?: string;
-  next_backup_at?: string;
-}
-
 interface BackupManagementProps {
   onClose: () => void;
 }
 
 export const BackupManagement: React.FC<BackupManagementProps> = ({ onClose }) => {
-  const [backupLogs, setBackupLogs] = useState<BackupLog[]>([]);
-  const [backupConfig, setBackupConfig] = useState<BackupConfig | null>(null);
+  const [config, setConfig] = useState<BackupConfig | null>(null);
+  const [logs, setLogs] = useState<BackupLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
+  const [emailInput, setEmailInput] = useState("");
 
   useEffect(() => {
-    fetchBackupData();
+    fetchBackupConfig();
+    fetchBackupLogs();
   }, []);
 
-  const fetchBackupData = async () => {
+  const fetchBackupConfig = async () => {
     try {
-      // Fetch backup logs
-      const { data: logs, error: logsError } = await supabase
-        .from('backup_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (logsError) throw logsError;
-      setBackupLogs((logs || []) as BackupLog[]);
-
-      // Fetch backup configuration
-      const { data: config, error: configError } = await supabase
+      const { data, error } = await supabase
         .from('backup_configs')
         .select('*')
         .limit(1)
         .maybeSingle();
 
-      if (configError) throw configError;
-      setBackupConfig(config as BackupConfig);
+      if (error) throw error;
+      
+      if (data) {
+        setConfig({
+          ...data,
+          frequency: data.frequency as 'daily' | 'weekly' | 'monthly'
+        });
+      } else {
+        // Create default config if none exists
+        const { data: newConfig, error: insertError } = await supabase
+          .from('backup_configs')
+          .insert({
+            enabled: false,
+            frequency: 'weekly',
+            include_metadata: true,
+            email_notifications: []
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        setConfig({
+          ...newConfig,
+          frequency: newConfig.frequency as 'daily' | 'weekly' | 'monthly'
+        });
+      }
     } catch (error) {
-      console.error('Error fetching backup data:', error);
-      toast.error('Failed to load backup data');
+      console.error('Error fetching backup config:', error);
+      toast.error('Failed to load backup configuration');
+    }
+  };
+
+  const fetchBackupLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('backup_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setLogs((data || []).map(log => ({
+        ...log,
+        backup_type: log.backup_type as 'manual' | 'scheduled',
+        status: log.status as 'completed' | 'failed' | 'in_progress'
+      })));
+    } catch (error) {
+      console.error('Error fetching backup logs:', error);
+      toast.error('Failed to load backup history');
     } finally {
       setLoading(false);
     }
   };
 
-  const saveBackupConfig = async () => {
-    if (!backupConfig) return;
-
+  const saveConfig = async () => {
+    if (!config) return;
+    
     setSaving(true);
     try {
       const { error } = await supabase
         .from('backup_configs')
-        .upsert(backupConfig);
+        .update({
+          enabled: config.enabled,
+          frequency: config.frequency,
+          include_metadata: config.include_metadata,
+          email_notifications: config.email_notifications
+        })
+        .eq('id', config.id);
 
       if (error) throw error;
-
+      
       toast.success('Backup configuration saved successfully');
     } catch (error) {
       console.error('Error saving backup config:', error);
@@ -99,44 +138,45 @@ export const BackupManagement: React.FC<BackupManagementProps> = ({ onClose }) =
   };
 
   const addEmailNotification = () => {
-    if (!newEmail || !backupConfig) return;
+    if (!emailInput.trim() || !config) return;
     
-    if (!newEmail.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput)) {
       toast.error('Please enter a valid email address');
       return;
     }
 
-    if (backupConfig.email_notifications.includes(newEmail)) {
+    if (config.email_notifications.includes(emailInput)) {
       toast.error('Email already added');
       return;
     }
 
-    setBackupConfig({
-      ...backupConfig,
-      email_notifications: [...backupConfig.email_notifications, newEmail]
+    setConfig({
+      ...config,
+      email_notifications: [...config.email_notifications, emailInput]
     });
-    setNewEmail("");
+    setEmailInput("");
   };
 
-  const removeEmailNotification = (emailToRemove: string) => {
-    if (!backupConfig) return;
+  const removeEmailNotification = (email: string) => {
+    if (!config) return;
     
-    setBackupConfig({
-      ...backupConfig,
-      email_notifications: backupConfig.email_notifications.filter(email => email !== emailToRemove)
+    setConfig({
+      ...config,
+      email_notifications: config.email_notifications.filter(e => e !== email)
     });
   };
 
   const triggerManualBackup = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('backup-documents', {
-        body: { trigger_type: 'manual' }
+        body: { type: 'manual' }
       });
 
       if (error) throw error;
       
       toast.success('Manual backup triggered successfully');
-      fetchBackupData(); // Refresh the logs
+      await fetchBackupLogs(); // Refresh logs
     } catch (error) {
       console.error('Error triggering backup:', error);
       toast.error('Failed to trigger backup');
@@ -166,89 +206,104 @@ export const BackupManagement: React.FC<BackupManagementProps> = ({ onClose }) =
         <h2 className="text-2xl font-bold">Backup Management</h2>
       </div>
 
-      {/* Backup Configuration */}
+      {/* Configuration Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Backup Configuration
+            <Calendar className="h-5 w-5" />
+            Scheduled Backup Configuration
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {backupConfig && (
+          {config && (
             <>
               <div className="flex items-center justify-between">
-                <Label htmlFor="backup-enabled">Enable Scheduled Backups</Label>
+                <div>
+                  <Label htmlFor="enabled">Enable Scheduled Backups</Label>
+                  <p className="text-sm text-muted-foreground">Automatically backup documents on schedule</p>
+                </div>
                 <Switch
-                  id="backup-enabled"
-                  checked={backupConfig.enabled}
-                  onCheckedChange={(enabled) => 
-                    setBackupConfig({ ...backupConfig, enabled })
-                  }
+                  id="enabled"
+                  checked={config.enabled}
+                  onCheckedChange={(enabled) => setConfig({ ...config, enabled })}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Backup Frequency</Label>
-                <Select
-                  value={backupConfig.frequency}
-                  onValueChange={(frequency: 'daily' | 'weekly' | 'monthly') =>
-                    setBackupConfig({ ...backupConfig, frequency })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="frequency">Backup Frequency</Label>
+                  <Select 
+                    value={config.frequency} 
+                    onValueChange={(frequency: 'daily' | 'weekly' | 'monthly') => 
+                      setConfig({ ...config, frequency })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="metadata"
+                    checked={config.include_metadata}
+                    onCheckedChange={(include_metadata) => 
+                      setConfig({ ...config, include_metadata })
+                    }
+                  />
+                  <Label htmlFor="metadata">Include Metadata</Label>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="include-metadata">Include Metadata in Backups</Label>
-                <Switch
-                  id="include-metadata"
-                  checked={backupConfig.include_metadata}
-                  onCheckedChange={(include_metadata) => 
-                    setBackupConfig({ ...backupConfig, include_metadata })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
+              <div>
                 <Label>Email Notifications</Label>
-                <div className="flex gap-2">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Email addresses to notify when backups complete
+                </p>
+                
+                <div className="flex gap-2 mb-2">
                   <Input
-                    placeholder="admin@company.com"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
+                    type="email"
+                    placeholder="Enter email address"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addEmailNotification()}
                   />
-                  <Button onClick={addEmailNotification} size="sm">
+                  <Button onClick={addEmailNotification} variant="outline">
+                    <Mail className="h-4 w-4 mr-2" />
                     Add
                   </Button>
                 </div>
+
                 <div className="flex flex-wrap gap-2">
-                  {backupConfig.email_notifications.map((email) => (
-                    <Badge key={email} variant="secondary" className="cursor-pointer" 
-                           onClick={() => removeEmailNotification(email)}>
-                      {email} ×
+                  {config.email_notifications.map((email) => (
+                    <Badge key={email} variant="secondary" className="flex items-center gap-1">
+                      {email}
+                      <button
+                        onClick={() => removeEmailNotification(email)}
+                        className="text-muted-foreground hover:text-destructive ml-1"
+                      >
+                        ×
+                      </button>
                     </Badge>
                   ))}
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={saveBackupConfig} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                <Button onClick={saveConfig} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Configuration
                 </Button>
-                <Button variant="outline" onClick={triggerManualBackup}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Test Backup
+                <Button onClick={triggerManualBackup} variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Trigger Manual Backup
                 </Button>
               </div>
             </>
@@ -271,18 +326,18 @@ export const BackupManagement: React.FC<BackupManagementProps> = ({ onClose }) =
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Documents</TableHead>
-                <TableHead>File Size</TableHead>
+                <TableHead>Size</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {backupLogs.map((log) => (
+              {logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell>
                     {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm')}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={log.backup_type === 'manual' ? 'outline' : 'secondary'}>
+                    <Badge variant={log.backup_type === 'manual' ? 'default' : 'secondary'}>
                       {log.backup_type}
                     </Badge>
                   </TableCell>
@@ -290,27 +345,29 @@ export const BackupManagement: React.FC<BackupManagementProps> = ({ onClose }) =
                   <TableCell>{formatFileSize(log.file_size_bytes)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {log.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                      {log.status === 'failed' && <XCircle className="h-4 w-4 text-red-500" />}
-                      {log.status === 'in_progress' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {log.status === 'completed' && (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                      {log.status === 'failed' && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      {log.status === 'in_progress' && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                       <span className="capitalize">{log.status}</span>
                     </div>
-                    {log.error_message && (
-                      <div className="text-xs text-destructive mt-1">
-                        {log.error_message}
-                      </div>
-                    )}
                   </TableCell>
                 </TableRow>
               ))}
+              {logs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    No backup history available
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
-          
-          {backupLogs.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No backup history found. Create your first backup to see logs here.
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

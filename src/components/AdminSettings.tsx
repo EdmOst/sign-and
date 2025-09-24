@@ -352,6 +352,10 @@ export const AdminSettings: React.FC = () => {
     return <BackupManagement onClose={() => setShowBackupManagement(false)} />;
   }
 
+  if (showBackupManagement) {
+    return <BackupManagement onClose={() => setShowBackupManagement(false)} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
