@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Download, Archive, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
+import { BackupManagement } from "@/components/BackupManagement";
 
 interface User {
   id: string;
@@ -31,6 +32,7 @@ export const AdminSettings: React.FC = () => {
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [showBackupManagement, setShowBackupManagement] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -256,17 +258,30 @@ export const AdminSettings: React.FC = () => {
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(url);
 
-      // Log the backup activity
-      await supabase
-        .from('user_activity_logs')
-        .insert({
-          user_id: user?.id,
-          user_email: user?.email,
-          user_name: user?.email,
-          action_type: 'BACKUP_CREATED',
-          action_description: `Manual backup created with ${documents.length} documents`,
-          metadata: { document_count: documents.length, backup_type: 'manual' }
-        });
+      // Log the backup activity in both tables
+      const backupId = crypto.randomUUID();
+      await Promise.all([
+        supabase
+          .from('user_activity_logs')
+          .insert({
+            user_id: user?.id,
+            user_email: user?.email,
+            user_name: user?.email,
+            action_type: 'BACKUP_CREATED',
+            action_description: `Manual backup created with ${documents.length} documents`,
+            metadata: { backup_id: backupId, document_count: documents.length, backup_type: 'manual' }
+          }),
+        supabase
+          .from('backup_logs')
+          .insert({
+            backup_id: backupId,
+            backup_type: 'manual',
+            document_count: documents.length,
+            file_size_bytes: content.size,
+            status: 'completed',
+            created_by: user?.id
+          })
+      ]);
 
       toast.success(`Backup created successfully with ${documents.length} documents`);
     } catch (error) {
@@ -331,6 +346,10 @@ export const AdminSettings: React.FC = () => {
 
   if (showActivityLogs) {
     return <UserActivityLogs onClose={() => setShowActivityLogs(false)} />;
+  }
+
+  if (showBackupManagement) {
+    return <BackupManagement onClose={() => setShowBackupManagement(false)} />;
   }
 
   return (
@@ -577,9 +596,12 @@ export const AdminSettings: React.FC = () => {
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <h3 className="font-medium">Scheduled Backups</h3>
-                <p className="text-sm text-muted-foreground">Configure automatic backups to external storage or email</p>
+                <p className="text-sm text-muted-foreground">Configure automatic backups and scheduling options</p>
               </div>
-              <Badge variant="secondary">Coming Soon</Badge>
+              <Button variant="outline" onClick={() => setShowBackupManagement(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configure
+              </Button>
             </div>
             
             <div className="flex items-center justify-between p-4 border rounded-lg">
