@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut, RefreshCw } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -62,6 +62,7 @@ export const PDFSigner: React.FC = () => {
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
   const [isLoadingSignedDocuments, setIsLoadingSignedDocuments] = useState(true);
+  const [collectedFiles, setCollectedFiles] = useState<File[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -425,6 +426,41 @@ export const PDFSigner: React.FC = () => {
     setShowArchive(false); // Close archive view
   };
 
+  // Load collected files from admin's virtual printer setup
+  const loadCollectedFiles = async () => {
+    // In a real implementation, this would get files from a shared location
+    // For now, we'll check localStorage for admin-collected files
+    try {
+      const adminCollectedFiles = localStorage.getItem('admin-virtual-printer-files');
+      if (adminCollectedFiles) {
+        const files = JSON.parse(adminCollectedFiles);
+        setCollectedFiles(files);
+      }
+    } catch (error) {
+      console.error('Error loading collected files:', error);
+    }
+  };
+
+  const loadCollectedFile = (fileData: any) => {
+    // Create file from stored data
+    const file = new File([fileData.data], fileData.name, { type: 'application/pdf' });
+    setPdfFile(file);
+    const url = URL.createObjectURL(file);
+    setPdfUrl(url);
+    setNumPages(0);
+    setCurrentPage(1);
+    setSignaturePositions([]);
+    toast.success(`Loaded: ${file.name}`);
+  };
+
+  // Load collected files when component mounts
+  useEffect(() => {
+    loadCollectedFiles();
+    // Set up interval to check for new files every 30 seconds
+    const interval = setInterval(loadCollectedFiles, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSignOut = async () => {
     try {
       const { error } = await signOut();
@@ -521,7 +557,7 @@ export const PDFSigner: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Controls Panel */}
             <div className="lg:col-span-1 space-y-6">
-              {/* Virtual Printer Collection */}
+              {/* Upload Section */}
               <Card className="shadow-medium">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold mb-4">Upload Document</h3>
@@ -545,6 +581,65 @@ export const PDFSigner: React.FC = () => {
                       <p className="text-sm text-muted-foreground">
                         Selected: {pdfFile.name}
                       </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Auto-upload Documents */}
+              <Card className="shadow-medium">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Auto-upload Documents</h3>
+                  <div className="space-y-4">
+                    {collectedFiles.length === 0 ? (
+                      <div className="text-center py-4">
+                        <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          No virtual printer documents available
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Documents from virtual printer will appear here
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">
+                            Available Documents ({collectedFiles.length})
+                          </Label>
+                          <Button
+                            onClick={loadCollectedFiles}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="max-h-32 overflow-y-auto space-y-1">
+                          {collectedFiles.map((file: any, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-sm hover:bg-muted/80 transition-colors">
+                              <div className="flex-1 mr-2">
+                                <span className="truncate block">{file.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(file.lastModified).toLocaleString()}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => loadCollectedFile(file)}
+                                className="h-8 px-2 text-xs"
+                              >
+                                Load
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Click "Load" to open a document for signing
+                        </p>
+                      </div>
                     )}
                   </div>
                 </CardContent>
