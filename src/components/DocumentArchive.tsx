@@ -401,10 +401,6 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
         </Card>
       )}
 
-      {/* Copyright Footer */}
-      <footer className="mt-8 pt-6 border-t">
-        <Copyright />
-      </footer>
     </div>
   );
 };
