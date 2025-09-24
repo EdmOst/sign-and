@@ -343,7 +343,7 @@ export const AdminSettings: React.FC = () => {
             <div className="space-y-2 p-4 bg-muted rounded-lg">
               <p><strong>Name:</strong> {userToDelete.display_name}</p>
               <p><strong>Email:</strong> {userToDelete.email}</p>
-              <p><strong>Role:</strong> <Badge variant={userToDelete.role === 'admin' ? 'destructive' : 'secondary'}>{userToDelete.role}</Badge></p>
+              <p><strong>Role:</strong> <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${userToDelete.role === 'admin' ? 'bg-destructive text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{userToDelete.role}</span></p>
               {userToDelete.role === 'admin' && users.filter(u => u.role === 'admin').length === 1 && (
                 <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
                   <p className="text-sm text-destructive font-medium">⚠️ This is the last admin user and cannot be deleted</p>
@@ -407,14 +407,17 @@ export const AdminSettings: React.FC = () => {
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openDeleteDialog(user)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {/* Hide delete button if this is the only admin */}
+                    {!(user.role === 'admin' && users.filter(u => u.role === 'admin').length === 1) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDeleteDialog(user)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
