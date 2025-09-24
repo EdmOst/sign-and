@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Download, FileText, Calendar, Search, Home, LogOut, Archive, Settings } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AdminSettings } from "@/components/AdminSettings";
+import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -473,19 +474,7 @@ export const PDFSigner: React.FC = () => {
               <h1 className="text-2xl font-bold text-foreground">PDF SIGNER</h1>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {user?.email} {role === "admin" && "(Admin)"}
-              </span>
-              {role === "admin" && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowAdminSettings(true)}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Button>
-              )}
+              <UserProfileDropdown onSettingsClick={() => setShowAdminSettings(true)} />
               <Button
                 variant="outline"
                 onClick={() => setShowArchive(!showArchive)}
@@ -501,24 +490,6 @@ export const PDFSigner: React.FC = () => {
               >
                 <Home className="h-4 w-4" />
                 Start Over
-              </Button>
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  onClick={() => window.location.href = '/settings'}
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
               </Button>
             </div>
           </div>
