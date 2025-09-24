@@ -245,7 +245,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
             <TableHeader>
               <TableRow>
                 <TableHead>Document Name</TableHead>
-                <TableHead>Signed Date</TableHead>
+                <TableHead>Signed Date & By</TableHead>
                 <TableHead>Signatures</TableHead>
                 <TableHead>Last Changes By</TableHead>
                 <TableHead>Actions</TableHead>
@@ -258,7 +258,16 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     {document.original_filename}
                   </TableCell>
                   <TableCell>
-                    {format(new Date(document.signed_at), 'dd/MM/yyyy HH:mm')}
+                    <div>
+                      <div className="font-medium">
+                        {format(new Date(document.signed_at), 'dd/MM/yyyy HH:mm')}
+                      </div>
+                      {document.signed_by_email && (
+                        <div className="text-xs text-muted-foreground">
+                          Signed by: {document.signed_by_name || document.signed_by_email}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
