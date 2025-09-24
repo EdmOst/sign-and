@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AdminSettings } from "@/components/AdminSettings";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
+import { CompanyLogo } from "@/components/CompanyLogo";
+import { Copyright } from "@/components/Copyright";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -486,8 +488,7 @@ export const PDFSigner: React.FC = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">PDF SIGNER</h1>
+              <CompanyLogo size="md" showName />
             </div>
             <div className="flex items-center gap-3">
               <UserProfileDropdown onSettingsClick={() => setShowAdminSettings(true)} />
@@ -741,6 +742,13 @@ export const PDFSigner: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Copyright Footer */}
+      <footer className="mt-12 py-6 border-t bg-muted/30">
+        <div className="container mx-auto px-4">
+          <Copyright />
+        </div>
+      </footer>
     </div>
   );
 };

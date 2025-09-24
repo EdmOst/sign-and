@@ -10,6 +10,7 @@ import { ArrowLeft, Download, Eye, Search, Calendar, FileText } from "lucide-rea
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Copyright } from "@/components/Copyright";
 
 interface DocumentData {
   id: string;
@@ -399,6 +400,11 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           </CardContent>
         </Card>
       )}
+
+      {/* Copyright Footer */}
+      <footer className="mt-8 pt-6 border-t">
+        <Copyright />
+      </footer>
     </div>
   );
 };

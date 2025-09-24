@@ -13,6 +13,7 @@ import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Downlo
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 import { BackupManagement } from "@/components/BackupManagement";
+import { LogoUpload } from "@/components/LogoUpload";
 
 interface User {
   id: string;
@@ -20,6 +21,12 @@ interface User {
   display_name: string;
   role: "admin" | "user";
   created_at: string;
+}
+
+interface CompanySettings {
+  id: string;
+  logo_url?: string;
+  company_name: string;
 }
 
 export const AdminSettings: React.FC = () => {
@@ -33,9 +40,11 @@ export const AdminSettings: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [showBackupManagement, setShowBackupManagement] = useState(false);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
 
   useEffect(() => {
     fetchUsers();
+    fetchCompanySettings();
   }, []);
 
   const fetchUsers = async () => {
@@ -76,6 +85,21 @@ export const AdminSettings: React.FC = () => {
       toast.error("Failed to fetch users");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCompanySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setCompanySettings(data);
+    } catch (error) {
+      console.error('Error fetching company settings:', error);
     }
   };
 
@@ -568,6 +592,11 @@ export const AdminSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <LogoUpload 
+        settings={companySettings} 
+        onSettingsUpdate={setCompanySettings}
+      />
 
       <Card>
         <CardHeader>

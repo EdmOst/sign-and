@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { FileText, Loader2 } from "lucide-react";
+import { CompanyLogo } from "@/components/CompanyLogo";
+import { Copyright } from "@/components/Copyright";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -88,12 +90,11 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md shadow-elegant">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <FileText className="h-8 w-8 text-primary" />
-            <CardTitle className="text-2xl font-bold">PDF Signer</CardTitle>
+          <div className="flex items-center justify-center mb-4">
+            <CompanyLogo size="lg" showName />
           </div>
           <p className="text-muted-foreground">
             {showResetForm ? "Reset your password" : "Sign in to access your document signing tool"}
@@ -165,6 +166,8 @@ const Auth = () => {
           )}
         </CardContent>
       </Card>
+      
+      <Copyright className="mt-8" />
     </div>
   );
 };
