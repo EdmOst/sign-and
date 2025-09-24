@@ -238,43 +238,42 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {document.last_downloaded_at || document.last_previewed_at ? (
-                      <div className="text-sm">
-                        {document.last_downloaded_at && document.last_previewed_at ? (
-                          document.last_downloaded_at > document.last_previewed_at ? (
-                            <>
-                              <div className="font-medium">{document.last_downloaded_by_name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Downloaded {format(new Date(document.last_downloaded_at), 'PPp')}
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="font-medium">{document.last_previewed_by_name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Previewed {format(new Date(document.last_previewed_at), 'PPp')}
-                              </div>
-                            </>
-                          )
-                        ) : document.last_downloaded_at ? (
-                          <>
-                            <div className="font-medium">{document.last_downloaded_by_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Downloaded {format(new Date(document.last_downloaded_at), 'PPp')}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="font-medium">{document.last_previewed_by_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Previewed {format(new Date(document.last_previewed_at), 'PPp')}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">No activity</span>
-                    )}
+                    {(() => {
+                      const actions = [
+                        { 
+                          date: document.signed_at, 
+                          email: document.signed_by_email, 
+                          action: 'Signed' 
+                        },
+                        { 
+                          date: document.last_previewed_at, 
+                          email: document.last_previewed_by_email, 
+                          action: 'Previewed' 
+                        },
+                        { 
+                          date: document.last_downloaded_at, 
+                          email: document.last_downloaded_by_email, 
+                          action: 'Downloaded' 
+                        }
+                      ].filter(action => action.date && action.email);
+
+                      if (actions.length === 0) {
+                        return <span className="text-muted-foreground">No activity</span>;
+                      }
+
+                      const mostRecent = actions.reduce((latest, current) => 
+                        new Date(current.date!) > new Date(latest.date!) ? current : latest
+                      );
+
+                      return (
+                        <div className="text-sm">
+                          <div className="font-medium">{mostRecent.email}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {mostRecent.action} {format(new Date(mostRecent.date!), 'PPp')}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
