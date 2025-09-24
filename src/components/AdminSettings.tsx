@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Download, Archive, Clock, FolderOpen, RefreshCw, X, FileText } from "lucide-react";
+import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Archive, Clock, FolderOpen, RefreshCw, X, FileText, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 import { BackupManagement } from "@/components/BackupManagement";
@@ -38,9 +38,10 @@ export const AdminSettings: React.FC = () => {
   const [showActivityLogs, setShowActivityLogs] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [backupLoading, setBackupLoading] = useState(false);
   const [showBackupManagement, setShowBackupManagement] = useState(false);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [systemResetDialogOpen, setSystemResetDialogOpen] = useState(false);
+  const [systemResetConfirmOpen, setSystemResetConfirmOpen] = useState(false);
   const [virtualPrinterFolder, setVirtualPrinterFolder] = useState<FileSystemDirectoryHandle | null>(null);
   const [isWatchingFolder, setIsWatchingFolder] = useState(false);
   const [collectedFiles, setCollectedFiles] = useState<File[]>([]);
@@ -224,98 +225,33 @@ export const AdminSettings: React.FC = () => {
     setDeleteUserDialogOpen(true);
   };
 
-  const handleManualBackup = async () => {
-    setBackupLoading(true);
+  const handleSystemReset = async () => {
     try {
-      const { data: documents, error } = await supabase
+      const { error } = await supabase
         .from('documents')
-        .select('*')
-        .order('signed_at', { ascending: false });
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
 
       if (error) throw error;
 
-      if (!documents || documents.length === 0) {
-        toast.error('No documents found to backup');
-        return;
-      }
+      // Log the system reset activity
+      await supabase
+        .from('user_activity_logs')
+        .insert({
+          user_id: user?.id,
+          user_email: user?.email,
+          user_name: user?.email,
+          action_type: 'SYSTEM_RESET',
+          action_description: 'Complete system reset - all documents deleted',
+          metadata: { reset_by: user?.email, timestamp: new Date().toISOString() }
+        });
 
-      // Create a ZIP file with all documents
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-
-      // Add metadata file
-      const metadata = {
-        backup_date: new Date().toISOString(),
-        total_documents: documents.length,
-        generated_by: user?.email || 'admin',
-        documents: documents.map(doc => ({
-          id: doc.id,
-          name: doc.original_filename,
-          signed_at: doc.signed_at,
-          signed_by: doc.signed_by_email,
-          signatures_count: Array.isArray(doc.signatures) ? doc.signatures.length : 0
-        }))
-      };
-
-      zip.file('backup_metadata.json', JSON.stringify(metadata, null, 2));
-
-      // Add each document
-      documents.forEach((doc, index) => {
-        const fileName = `${index + 1}_${doc.original_filename}`;
-        try {
-          const binaryData = atob(doc.pdf_data);
-          const bytes = new Uint8Array(binaryData.length);
-          for (let i = 0; i < binaryData.length; i++) {
-            bytes[i] = binaryData.charCodeAt(i);
-          }
-          zip.file(fileName, bytes);
-        } catch (error) {
-          console.error(`Error processing document ${doc.original_filename}:`, error);
-        }
-      });
-
-      // Generate and download the ZIP
-      const content = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(content);
-      const downloadLink = document.createElement('a');
-      downloadLink.href = url;
-      downloadLink.download = `documents_backup_${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(url);
-
-      // Log the backup activity in both tables
-      const backupId = crypto.randomUUID();
-      await Promise.all([
-        supabase
-          .from('user_activity_logs')
-          .insert({
-            user_id: user?.id,
-            user_email: user?.email,
-            user_name: user?.email,
-            action_type: 'BACKUP_CREATED',
-            action_description: `Manual backup created with ${documents.length} documents`,
-            metadata: { backup_id: backupId, document_count: documents.length, backup_type: 'manual' }
-          }),
-        supabase
-          .from('backup_logs')
-          .insert({
-            backup_id: backupId,
-            backup_type: 'manual',
-            document_count: documents.length,
-            file_size_bytes: content.size,
-            status: 'completed',
-            created_by: user?.id
-          })
-      ]);
-
-      toast.success(`Backup created successfully with ${documents.length} documents`);
+      toast.success('System has been completely reset. All documents have been deleted.');
+      setSystemResetDialogOpen(false);
+      setSystemResetConfirmOpen(false);
     } catch (error) {
-      console.error('Error creating backup:', error);
-      toast.error('Failed to create backup');
-    } finally {
-      setBackupLoading(false);
+      console.error('Error resetting system:', error);
+      toast.error('Failed to reset system');
     }
   };
 
@@ -767,24 +703,6 @@ export const AdminSettings: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">Manual Backup</h3>
-                <p className="text-sm text-muted-foreground">Download all signed documents as a ZIP file immediately</p>
-              </div>
-              <Button 
-                onClick={handleManualBackup} 
-                disabled={backupLoading}
-                className="flex items-center gap-2"
-              >
-                {backupLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                {backupLoading ? 'Creating...' : 'Download Backup'}
-              </Button>
-            </div>
             
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
@@ -810,6 +728,106 @@ export const AdminSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* System Reset Section */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <RotateCcw className="h-5 w-5" />
+            Danger Zone - System Reset
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+              <div>
+                <h3 className="font-medium text-destructive">Complete System Reset</h3>
+                <p className="text-sm text-muted-foreground">
+                  Permanently delete all signed documents and signatures. This action cannot be undone.
+                </p>
+              </div>
+              <Button 
+                variant="destructive"
+                onClick={() => setSystemResetDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset System
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* System Reset First Confirmation Dialog */}
+      <Dialog open={systemResetDialogOpen} onOpenChange={setSystemResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              System Reset Confirmation
+            </DialogTitle>
+            <DialogDescription>
+              You are about to permanently delete ALL signed documents and signatures from the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+            <p className="text-sm font-medium text-destructive">⚠️ This action will:</p>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+              <li>• Delete all signed PDF documents</li>
+              <li>• Remove all signatures and metadata</li>
+              <li>• Clear all document history</li>
+              <li>• Cannot be reversed or undone</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSystemResetDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                setSystemResetDialogOpen(false);
+                setSystemResetConfirmOpen(true);
+              }}
+            >
+              I Understand, Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* System Reset Final Confirmation Dialog */}
+      <Dialog open={systemResetConfirmOpen} onOpenChange={setSystemResetConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Final Confirmation Required
+            </DialogTitle>
+            <DialogDescription>
+              This is your final chance to cancel. Once you proceed, all data will be permanently lost.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 p-4 bg-destructive/10 border border-destructive rounded-lg">
+            <p className="text-center font-medium text-destructive">
+              Are you absolutely certain you want to reset the entire system?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSystemResetConfirmOpen(false)}>
+              Cancel - Keep Data Safe
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleSystemReset}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Yes, Delete Everything
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
