@@ -251,7 +251,7 @@ export const PDFSigner: React.FC = () => {
 
           // Add timestamp
           if (sigPos.timestamp) {
-            page.drawText(`Signed: ${new Date(sigPos.timestamp).toLocaleString()}`, {
+            page.drawText(`Signed: ${new Date(sigPos.timestamp).toLocaleString('en-GB', { hour12: false })}`, {
               x,
               y: y - 15,
               size: 8,
@@ -361,7 +361,7 @@ export const PDFSigner: React.FC = () => {
 
           // Add timestamp
           if (sigPos.timestamp) {
-            page.drawText(`Signed: ${new Date(sigPos.timestamp).toLocaleString()}`, {
+            page.drawText(`Signed: ${new Date(sigPos.timestamp).toLocaleString('en-GB', { hour12: false })}`, {
               x,
               y: y - 15,
               size: 8,

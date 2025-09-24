@@ -107,7 +107,7 @@ export const SignatureArea: React.FC<SignatureAreaProps> = ({ position, onClick,
       
       {timestamp && (
         <div className="absolute -bottom-5 left-0 text-xs text-muted-foreground bg-white px-1 rounded">
-          {new Date(timestamp).toLocaleString()}
+          {new Date(timestamp).toLocaleString('en-GB', { hour12: false })}
         </div>
       )}
     </div>
