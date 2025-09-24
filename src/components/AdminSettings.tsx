@@ -582,13 +582,6 @@ export const AdminSettings: React.FC = () => {
               </div>
               <Badge variant="secondary">Coming Soon</Badge>
             </div>
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">Company Logo</h3>
-                <p className="text-sm text-muted-foreground">Upload and manage company branding</p>
-              </div>
-              <Badge variant="secondary">Coming Soon</Badge>
-            </div>
           </div>
         </CardContent>
       </Card>
