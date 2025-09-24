@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      backup_configs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email_notifications: string[] | null
+          enabled: boolean
+          frequency: string
+          id: string
+          include_metadata: boolean
+          last_backup_at: string | null
+          next_backup_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email_notifications?: string[] | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_metadata?: boolean
+          last_backup_at?: string | null
+          next_backup_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email_notifications?: string[] | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_metadata?: boolean
+          last_backup_at?: string | null
+          next_backup_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      backup_logs: {
+        Row: {
+          backup_id: string
+          backup_type: string
+          created_at: string
+          created_by: string | null
+          document_count: number
+          error_message: string | null
+          file_size_bytes: number | null
+          id: string
+          status: string
+        }
+        Insert: {
+          backup_id: string
+          backup_type?: string
+          created_at?: string
+          created_by?: string | null
+          document_count?: number
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          status?: string
+        }
+        Update: {
+          backup_id?: string
+          backup_type?: string
+          created_at?: string
+          created_by?: string | null
+          document_count?: number
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
