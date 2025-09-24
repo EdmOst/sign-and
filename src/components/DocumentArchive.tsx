@@ -91,7 +91,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           .from('profiles')
           .select('display_name, email')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           await supabase
@@ -122,7 +122,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           .from('profiles')
           .select('display_name, email')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           await supabase

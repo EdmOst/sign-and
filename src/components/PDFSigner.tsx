@@ -273,6 +273,13 @@ export const PDFSigner: React.FC = () => {
         signatures: signaturePositions.filter(sig => sig.signature),
       };
 
+      // Get user profile for tracking signer information
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, email')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
       // Save to database
       const { error: insertError } = await supabase
         .from('documents')
@@ -281,7 +288,9 @@ export const PDFSigner: React.FC = () => {
           name: signedDoc.name,
           original_filename: signedDoc.originalFileName,
           pdf_data: base64,
-          signatures: JSON.parse(JSON.stringify(signedDoc.signatures))
+          signatures: JSON.parse(JSON.stringify(signedDoc.signatures)),
+          signed_by_name: profile?.display_name || user.email || 'Unknown User',
+          signed_by_email: profile?.email || user.email || 'unknown@example.com'
         });
       
       if (insertError) {
