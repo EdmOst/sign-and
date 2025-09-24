@@ -18,33 +18,57 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_downloaded_at: string | null
+          last_downloaded_by_email: string | null
+          last_downloaded_by_name: string | null
+          last_previewed_at: string | null
+          last_previewed_by_email: string | null
+          last_previewed_by_name: string | null
           name: string
           original_filename: string
           pdf_data: string
           signatures: Json
           signed_at: string
+          signed_by_email: string | null
+          signed_by_name: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          last_downloaded_at?: string | null
+          last_downloaded_by_email?: string | null
+          last_downloaded_by_name?: string | null
+          last_previewed_at?: string | null
+          last_previewed_by_email?: string | null
+          last_previewed_by_name?: string | null
           name: string
           original_filename: string
           pdf_data: string
           signatures?: Json
           signed_at?: string
+          signed_by_email?: string | null
+          signed_by_name?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          last_downloaded_at?: string | null
+          last_downloaded_by_email?: string | null
+          last_downloaded_by_name?: string | null
+          last_previewed_at?: string | null
+          last_previewed_by_email?: string | null
+          last_previewed_by_name?: string | null
           name?: string
           original_filename?: string
           pdf_data?: string
           signatures?: Json
           signed_at?: string
+          signed_by_email?: string | null
+          signed_by_name?: string | null
           updated_at?: string
           user_id?: string
         }

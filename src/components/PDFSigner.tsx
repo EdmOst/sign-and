@@ -518,10 +518,7 @@ export const PDFSigner: React.FC = () => {
 
       <div className="container mx-auto px-4 py-6">
         {showArchive ? (
-          <DocumentArchive 
-            documents={signedDocuments}
-            onClose={() => setShowArchive(false)}
-          />
+          <DocumentArchive onClose={() => setShowArchive(false)} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Controls Panel */}
