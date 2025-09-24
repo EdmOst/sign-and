@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Download, Archive, Clock, FolderOpen } from "lucide-react";
+import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Download, Archive, Clock, FolderOpen, RefreshCw, X, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 import { BackupManagement } from "@/components/BackupManagement";
@@ -41,6 +41,9 @@ export const AdminSettings: React.FC = () => {
   const [backupLoading, setBackupLoading] = useState(false);
   const [showBackupManagement, setShowBackupManagement] = useState(false);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [virtualPrinterFolder, setVirtualPrinterFolder] = useState<FileSystemDirectoryHandle | null>(null);
+  const [isWatchingFolder, setIsWatchingFolder] = useState(false);
+  const [collectedFiles, setCollectedFiles] = useState<File[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -360,6 +363,78 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
+  // Virtual Printer Collection Functions
+  const setupVirtualPrinterFolder = async () => {
+    try {
+      // Check if File System Access API is supported
+      if (!('showDirectoryPicker' in window)) {
+        toast.error("Your browser doesn't support folder access. Please use Chrome, Edge, or another Chromium-based browser.");
+        return;
+      }
+
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite'
+      });
+      
+      setVirtualPrinterFolder(dirHandle);
+      toast.success(`Virtual printer folder set: ${dirHandle.name}`);
+      
+      // Start watching the folder
+      startFolderWatching(dirHandle);
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Error setting up virtual printer folder:', error);
+        toast.error("Failed to set up virtual printer folder");
+      }
+    }
+  };
+
+  const startFolderWatching = async (dirHandle: FileSystemDirectoryHandle) => {
+    setIsWatchingFolder(true);
+    toast.success("Started monitoring folder for new PDF files");
+    
+    // Note: Real-time folder watching requires a service worker or polling
+    // For now, we'll implement a manual check button
+  };
+
+  const checkForNewFiles = async () => {
+    if (!virtualPrinterFolder) return;
+
+    try {
+      const newFiles: File[] = [];
+      
+      // TypeScript doesn't have full File System Access API types yet
+      const dirHandle = virtualPrinterFolder as any;
+      
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'file' && name.toLowerCase().endsWith('.pdf')) {
+          const file = await handle.getFile();
+          
+          // Check if we've already collected this file
+          const isAlreadyCollected = collectedFiles.some(f => 
+            f.name === file.name && f.lastModified === file.lastModified
+          );
+          
+          if (!isAlreadyCollected) {
+            newFiles.push(file);
+          }
+        }
+      }
+
+      if (newFiles.length > 0) {
+        setCollectedFiles(prev => [...prev, ...newFiles]);
+        toast.success(`Found ${newFiles.length} new PDF file(s)`);
+      }
+    } catch (error) {
+      console.error('Error checking for new files:', error);
+      toast.error("Failed to check for new files");
+    }
+  };
+
+  const removeCollectedFile = (index: number) => {
+    setCollectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -586,7 +661,99 @@ export const AdminSettings: React.FC = () => {
         </CardContent>
       </Card>
 
-      <LogoUpload 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderOpen className="h-5 w-5" />
+            Virtual Printer Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-lg">
+              <div className="space-y-3">
+                <h3 className="font-medium">Virtual Printer Collection</h3>
+                <p className="text-sm text-muted-foreground">
+                  Set up automatic PDF collection from virtual printer output folder for system-wide document processing
+                </p>
+                
+                {!virtualPrinterFolder ? (
+                  <Button
+                    onClick={setupVirtualPrinterFolder}
+                    variant="outline"
+                    className="w-full max-w-sm"
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Select Printer Output Folder
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-muted rounded">
+                      <div>
+                        <span className="text-sm font-medium">Monitoring Folder:</span>
+                        <p className="text-sm text-muted-foreground">{virtualPrinterFolder.name}</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setVirtualPrinterFolder(null);
+                          setIsWatchingFolder(false);
+                          setCollectedFiles([]);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Stop Monitoring
+                      </Button>
+                    </div>
+                    
+                    <Button
+                      onClick={checkForNewFiles}
+                      variant="outline"
+                      className="w-full max-w-sm"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Check for New Files
+                    </Button>
+
+                    {collectedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">
+                          Collected Files ({collectedFiles.length})
+                        </Label>
+                        <div className="max-h-32 overflow-y-auto space-y-1 p-2 border rounded">
+                          {collectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                              <span className="truncate flex-1 mr-2">{file.name}</span>
+                              <div className="flex gap-1">
+                                <span className="text-xs text-muted-foreground">
+                                  {(file.size / 1024 / 1024).toFixed(2)}MB
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeCollectedFile(index)}
+                                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Note: Files are available for users to load directly into the PDF signer
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <LogoUpload
         settings={companySettings} 
         onSettingsUpdate={setCompanySettings}
       />
