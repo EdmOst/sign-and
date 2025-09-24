@@ -93,15 +93,17 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (profile) {
-          await supabase
-            .from('documents')
-            .update({
-              last_previewed_by_name: profile.display_name,
-              last_previewed_by_email: profile.email,
-              last_previewed_at: new Date().toISOString()
-            })
-            .eq('id', document.id);
+        const { error: updateError } = await supabase
+          .from('documents')
+          .update({
+            last_previewed_by_name: profile?.display_name || user.email || 'Unknown User',
+            last_previewed_by_email: profile?.email || user.email || 'unknown@example.com',
+            last_previewed_at: new Date().toISOString()
+          })
+          .eq('id', document.id);
+
+        if (updateError) {
+          console.error('Error updating preview tracking:', updateError);
         }
       }
     } catch (error) {
@@ -110,7 +112,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
 
     setSelectedDocument(document);
     // Refresh documents to show updated tracking
-    fetchDocuments();
+    await fetchDocuments();
   };
 
   const handleDownload = async (document: DocumentData) => {
@@ -124,15 +126,17 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (profile) {
-          await supabase
-            .from('documents')
-            .update({
-              last_downloaded_by_name: profile.display_name,
-              last_downloaded_by_email: profile.email,
-              last_downloaded_at: new Date().toISOString()
-            })
-            .eq('id', document.id);
+        const { error: updateError } = await supabase
+          .from('documents')
+          .update({
+            last_downloaded_by_name: profile?.display_name || user.email || 'Unknown User',
+            last_downloaded_by_email: profile?.email || user.email || 'unknown@example.com',
+            last_downloaded_at: new Date().toISOString()
+          })
+          .eq('id', document.id);
+
+        if (updateError) {
+          console.error('Error updating download tracking:', updateError);
         }
       }
 
@@ -156,7 +160,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
       toast.success('Document downloaded successfully');
       
       // Refresh documents to show updated tracking
-      fetchDocuments();
+      await fetchDocuments();
     } catch (error) {
       console.error('Error downloading document:', error);
       toast.error('Failed to download document');
@@ -230,7 +234,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     {document.original_filename}
                   </TableCell>
                   <TableCell>
-                    {format(new Date(document.signed_at), 'PPp')}
+                    {format(new Date(document.signed_at), 'dd/MM/yyyy HH:mm')}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
@@ -269,7 +273,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                         <div className="text-sm">
                           <div className="font-medium">{mostRecent.email}</div>
                           <div className="text-xs text-muted-foreground">
-                            {mostRecent.action} {format(new Date(mostRecent.date!), 'PPp')}
+                            {mostRecent.action} {format(new Date(mostRecent.date!), 'dd/MM/yyyy HH:mm')}
                           </div>
                         </div>
                       );
