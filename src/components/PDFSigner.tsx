@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Download, FileText, Calendar, Search, Home, LogOut, Archive } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, LogOut, Archive, Settings } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -14,6 +14,8 @@ import { PDFDocument, rgb } from "pdf-lib";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { AdminSettings } from "@/components/AdminSettings";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -41,6 +43,7 @@ interface SignedDocument {
 
 export const PDFSigner: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { role, loading: roleLoading } = useUserRole();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
@@ -53,6 +56,7 @@ export const PDFSigner: React.FC = () => {
   const [showArchiveDialog, setShowArchiveDialog] = useState<boolean>(false);
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
+  const [showAdminSettings, setShowAdminSettings] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -408,6 +412,46 @@ export const PDFSigner: React.FC = () => {
 
   const canDownload = signaturePositions.some(pos => pos.signature);
 
+  if (!user || roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (showAdminSettings && role === "admin") {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="bg-card shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowAdminSettings(false)}
+                >
+                  ← Back to PDF Signer
+                </Button>
+              </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  {user.email} (Admin)
+                </span>
+                <Button variant="outline" onClick={signOut}>
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <AdminSettings />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -420,8 +464,18 @@ export const PDFSigner: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">
-                Welcome, {user?.email}
+                Welcome, {user?.email} {role === "admin" && "(Admin)"}
               </span>
+              {role === "admin" && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowAdminSettings(true)}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setShowArchive(!showArchive)}
