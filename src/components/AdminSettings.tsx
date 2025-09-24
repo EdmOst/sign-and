@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Users, Trash2, Loader2 } from "lucide-react";
+import { Plus, Settings, Users, Trash2, Loader2, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UserActivityLogs } from "@/components/UserActivityLogs";
 
 interface User {
   id: string;
@@ -24,6 +25,7 @@ export const AdminSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [showActivityLogs, setShowActivityLogs] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -166,6 +168,10 @@ export const AdminSettings: React.FC = () => {
     );
   }
 
+  if (showActivityLogs) {
+    return <UserActivityLogs onClose={() => setShowActivityLogs(false)} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -173,68 +179,74 @@ export const AdminSettings: React.FC = () => {
           <h1 className="text-3xl font-bold">Admin Settings</h1>
           <p className="text-muted-foreground">Manage users and system settings</p>
         </div>
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleAddUser} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="user@example.com"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  name="displayName"
-                  type="text"
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Temporary Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Temporary password"
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select name="role" defaultValue="user">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full" disabled={addUserLoading}>
-                {addUserLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create User
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowActivityLogs(true)}>
+            <Activity className="mr-2 h-4 w-4" />
+            All User Logs
+          </Button>
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add User
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddUser} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    name="displayName"
+                    type="text"
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Temporary Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Temporary password"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select name="role" defaultValue="user">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full" disabled={addUserLoading}>
+                  {addUserLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create User
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -303,6 +315,16 @@ export const AdminSettings: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-medium">Activity Monitoring</h3>
+                <p className="text-sm text-muted-foreground">View comprehensive user activity logs and audit trail</p>
+              </div>
+              <Button variant="outline" onClick={() => setShowActivityLogs(true)}>
+                <Activity className="mr-2 h-4 w-4" />
+                View Logs
+              </Button>
+            </div>
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <h3 className="font-medium">Invoicing Module</h3>
