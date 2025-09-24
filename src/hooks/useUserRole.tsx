@@ -41,5 +41,5 @@ export const useUserRole = () => {
     fetchUserRole();
   }, [user]);
 
-  return { role, loading };
+  return { role, loading, isAdmin: role === 'admin' };
 };

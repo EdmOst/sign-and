@@ -11,7 +11,8 @@ import { FileText, Loader2 } from "lucide-react";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
@@ -42,25 +43,25 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordReset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setResetLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: `${window.location.origin}/`,
     });
 
     if (error) {
       toast.error(error.message);
     } else {
       toast.success("Password reset email sent! Check your inbox.");
-      setResetMode(false);
+      setShowResetForm(false);
     }
 
-    setLoading(false);
+    setResetLoading(false);
   };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -95,70 +96,72 @@ const Auth = () => {
             <CardTitle className="text-2xl font-bold">PDF Signer</CardTitle>
           </div>
           <p className="text-muted-foreground">
-            {resetMode ? "Reset your password" : "Sign in to access your document signing tool"}
+            {showResetForm ? "Reset your password" : "Sign in to access your document signing tool"}
           </p>
         </CardHeader>
         <CardContent>
-          {resetMode ? (
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
-                <Input
-                  id="reset-email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Reset Email
-              </Button>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="w-full" 
-                onClick={() => setResetMode(false)}
+          {showResetForm ? (
+            <div className="space-y-4">
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={resetLoading}>
+                  {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Reset Email
+                </Button>
+              </form>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowResetForm(false)}
               >
                 Back to Sign In
               </Button>
-            </form>
+            </div>
           ) : (
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signin-email">Email</Label>
-                <Input
-                  id="signin-email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signin-password">Password</Label>
-                <Input
-                  id="signin-password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
-              </Button>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="w-full text-sm" 
-                onClick={() => setResetMode(true)}
+            <div className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+              <Button
+                variant="ghost"
+                className="w-full text-sm"
+                onClick={() => setShowResetForm(true)}
               >
                 Forgot your password?
               </Button>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -43,6 +43,7 @@ interface SignedDocument {
 
 export const PDFSigner: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useUserRole();
   const { role, loading: roleLoading } = useUserRole();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -492,6 +493,16 @@ export const PDFSigner: React.FC = () => {
                 <Home className="h-4 w-4" />
                 Start Over
               </Button>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.href = '/settings'}
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={handleSignOut}
