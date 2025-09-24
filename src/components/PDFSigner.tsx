@@ -743,6 +743,13 @@ export const PDFSigner: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      
+      {/* Copyright Footer */}
+      <footer className="mt-12 py-6 border-t bg-muted/30">
+        <div className="container mx-auto px-4">
+          <Copyright />
+        </div>
+      </footer>
     </div>
   );
 };
