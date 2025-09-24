@@ -28,8 +28,28 @@ export const useAuth = () => {
   }, []);
 
   const signOut = async () => {
+    const currentUser = user;
+    
     try {
-      // Attempt to sign out from Supabase first
+      // Log sign out activity before clearing session
+      if (currentUser) {
+        try {
+          await supabase
+            .from('user_activity_logs')
+            .insert({
+              user_id: currentUser.id,
+              user_email: currentUser.email,
+              user_name: currentUser.email,
+              action_type: 'LOGOUT',
+              action_description: 'User signed out',
+              metadata: { logout_method: 'manual' }
+            });
+        } catch (logError) {
+          console.error('Error logging sign out activity:', logError);
+        }
+      }
+
+      // Attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       
       // Clear local state regardless of error

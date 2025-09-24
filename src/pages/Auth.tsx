@@ -74,7 +74,7 @@ const Auth = () => {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -82,6 +82,23 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
+      // Log successful login
+      if (data.user) {
+        try {
+          await supabase
+            .from('user_activity_logs')
+            .insert({
+              user_id: data.user.id,
+              user_email: email,
+              user_name: email,
+              action_type: 'LOGIN',
+              action_description: 'User signed in successfully',
+              metadata: { login_method: 'email_password' }
+            });
+        } catch (logError) {
+          console.error('Error logging sign in activity:', logError);
+        }
+      }
       toast.success("Welcome back!");
       navigate("/");
     }
