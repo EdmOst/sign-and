@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle } from "lucide-react";
+import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle, Download, Archive, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 
@@ -30,6 +30,7 @@ export const AdminSettings: React.FC = () => {
   const [showActivityLogs, setShowActivityLogs] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -192,6 +193,88 @@ export const AdminSettings: React.FC = () => {
   const openDeleteDialog = (userToDelete: User) => {
     setUserToDelete(userToDelete);
     setDeleteUserDialogOpen(true);
+  };
+
+  const handleManualBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const { data: documents, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('signed_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!documents || documents.length === 0) {
+        toast.error('No documents found to backup');
+        return;
+      }
+
+      // Create a ZIP file with all documents
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      // Add metadata file
+      const metadata = {
+        backup_date: new Date().toISOString(),
+        total_documents: documents.length,
+        generated_by: user?.email || 'admin',
+        documents: documents.map(doc => ({
+          id: doc.id,
+          name: doc.original_filename,
+          signed_at: doc.signed_at,
+          signed_by: doc.signed_by_email,
+          signatures_count: Array.isArray(doc.signatures) ? doc.signatures.length : 0
+        }))
+      };
+
+      zip.file('backup_metadata.json', JSON.stringify(metadata, null, 2));
+
+      // Add each document
+      documents.forEach((doc, index) => {
+        const fileName = `${index + 1}_${doc.original_filename}`;
+        try {
+          const binaryData = atob(doc.pdf_data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          zip.file(fileName, bytes);
+        } catch (error) {
+          console.error(`Error processing document ${doc.original_filename}:`, error);
+        }
+      });
+
+      // Generate and download the ZIP
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = url;
+      downloadLink.download = `documents_backup_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(url);
+
+      // Log the backup activity
+      await supabase
+        .from('user_activity_logs')
+        .insert({
+          user_id: user?.id,
+          user_email: user?.email,
+          user_name: user?.email,
+          action_type: 'BACKUP_CREATED',
+          action_description: `Manual backup created with ${documents.length} documents`,
+          metadata: { document_count: documents.length, backup_type: 'manual' }
+        });
+
+      toast.success(`Backup created successfully with ${documents.length} documents`);
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      toast.error('Failed to create backup');
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: "admin" | "user") => {
@@ -458,6 +541,56 @@ export const AdminSettings: React.FC = () => {
                 <p className="text-sm text-muted-foreground">Upload and manage company branding</p>
               </div>
               <Badge variant="secondary">Coming Soon</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Archive className="h-5 w-5" />
+            Document Backup Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-medium">Manual Backup</h3>
+                <p className="text-sm text-muted-foreground">Download all signed documents as a ZIP file immediately</p>
+              </div>
+              <Button 
+                onClick={handleManualBackup} 
+                disabled={backupLoading}
+                className="flex items-center gap-2"
+              >
+                {backupLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {backupLoading ? 'Creating...' : 'Download Backup'}
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-medium">Scheduled Backups</h3>
+                <p className="text-sm text-muted-foreground">Configure automatic backups to external storage or email</p>
+              </div>
+              <Badge variant="secondary">Coming Soon</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-medium">Backup History</h3>
+                <p className="text-sm text-muted-foreground">View and manage previous backup operations</p>
+              </div>
+              <Button variant="outline" onClick={() => setShowActivityLogs(true)}>
+                <Clock className="mr-2 h-4 w-4" />
+                View History
+              </Button>
             </div>
           </div>
         </CardContent>
