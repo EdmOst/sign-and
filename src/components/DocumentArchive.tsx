@@ -219,9 +219,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                 <TableHead>Document Name</TableHead>
                 <TableHead>Signed Date</TableHead>
                 <TableHead>Signatures</TableHead>
-                <TableHead>Signed By</TableHead>
-                <TableHead>Last Preview</TableHead>
-                <TableHead>Last Download</TableHead>
+                <TableHead>Last Changes By</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -240,39 +238,42 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {document.signed_by_name ? (
+                    {document.last_downloaded_at || document.last_previewed_at ? (
                       <div className="text-sm">
-                        <div className="font-medium">{document.signed_by_name}</div>
-                        <div className="text-muted-foreground">{document.signed_by_email}</div>
+                        {document.last_downloaded_at && document.last_previewed_at ? (
+                          document.last_downloaded_at > document.last_previewed_at ? (
+                            <>
+                              <div className="font-medium">{document.last_downloaded_by_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Downloaded {format(new Date(document.last_downloaded_at), 'PPp')}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-medium">{document.last_previewed_by_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Previewed {format(new Date(document.last_previewed_at), 'PPp')}
+                              </div>
+                            </>
+                          )
+                        ) : document.last_downloaded_at ? (
+                          <>
+                            <div className="font-medium">{document.last_downloaded_by_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Downloaded {format(new Date(document.last_downloaded_at), 'PPp')}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-medium">{document.last_previewed_by_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Previewed {format(new Date(document.last_previewed_at), 'PPp')}
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">Unknown</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {document.last_previewed_at ? (
-                      <div className="text-sm">
-                        <div className="font-medium">{document.last_previewed_by_name}</div>
-                        <div className="text-muted-foreground">{document.last_previewed_by_email}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(document.last_previewed_at), 'PPp')}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">Never</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {document.last_downloaded_at ? (
-                      <div className="text-sm">
-                        <div className="font-medium">{document.last_downloaded_by_name}</div>
-                        <div className="text-muted-foreground">{document.last_downloaded_by_email}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(document.last_downloaded_at), 'PPp')}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">Never</span>
+                      <span className="text-muted-foreground">No activity</span>
                     )}
                   </TableCell>
                   <TableCell>
