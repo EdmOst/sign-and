@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Users, Trash2, Loader2, Activity } from "lucide-react";
+import { Plus, Settings, Users, Trash2, Loader2, Activity, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 
@@ -28,6 +28,8 @@ export const AdminSettings: React.FC = () => {
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [showActivityLogs, setShowActivityLogs] = useState(false);
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -144,31 +146,67 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) {
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    // Check if this is the last admin
+    const adminCount = users.filter(u => u.role === 'admin').length;
+    if (userToDelete.role === 'admin' && adminCount === 1) {
+      toast.error("Cannot delete the last admin user. At least one admin is required.");
+      setDeleteUserDialogOpen(false);
+      setUserToDelete(null);
       return;
     }
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      const { error } = await supabase.auth.admin.deleteUser(userToDelete.id);
 
       if (error) {
         toast.error(`Failed to delete user: ${error.message}`);
         return;
       }
 
+      // Log the activity
+      await supabase
+        .from('user_activity_logs')
+        .insert({
+          user_id: userToDelete.id,
+          user_email: userToDelete.email,
+          user_name: userToDelete.display_name,
+          action_type: 'USER_DELETED',
+          action_description: `User account was deleted by admin`,
+          metadata: { deleted_by: user?.email, user_role: userToDelete.role }
+        });
+
       toast.success("User deleted successfully");
       fetchUsers();
     } catch (error) {
       console.error("Error deleting user:", error);
       toast.error("Failed to delete user");
+    } finally {
+      setDeleteUserDialogOpen(false);
+      setUserToDelete(null);
     }
+  };
+
+  const openDeleteDialog = (userToDelete: User) => {
+    setUserToDelete(userToDelete);
+    setDeleteUserDialogOpen(true);
   };
 
   const handleRoleChange = async (userId: string, newRole: "admin" | "user") => {
     try {
       const targetUser = users.find(u => u.id === userId);
       const oldRole = targetUser?.role;
+
+      // Check if trying to remove the last admin
+      if (oldRole === 'admin' && newRole === 'user') {
+        const adminCount = users.filter(u => u.role === 'admin').length;
+        if (adminCount === 1) {
+          toast.error("Cannot remove admin role from the last admin user. At least one admin is required.");
+          return;
+        }
+      }
 
       const { error } = await supabase
         .from("user_roles")
@@ -289,6 +327,45 @@ export const AdminSettings: React.FC = () => {
         </div>
       </div>
 
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirm User Deletion
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. Are you absolutely sure you want to delete this user account?
+            </DialogDescription>
+          </DialogHeader>
+          {userToDelete && (
+            <div className="space-y-2 p-4 bg-muted rounded-lg">
+              <p><strong>Name:</strong> {userToDelete.display_name}</p>
+              <p><strong>Email:</strong> {userToDelete.email}</p>
+              <p><strong>Role:</strong> <Badge variant={userToDelete.role === 'admin' ? 'destructive' : 'secondary'}>{userToDelete.role}</Badge></p>
+              {userToDelete.role === 'admin' && users.filter(u => u.role === 'admin').length === 1 && (
+                <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
+                  <p className="text-sm text-destructive font-medium">⚠️ This is the last admin user and cannot be deleted</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteUserDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteUser}
+              disabled={userToDelete?.role === 'admin' && users.filter(u => u.role === 'admin').length === 1}
+            >
+              Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -333,7 +410,7 @@ export const AdminSettings: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
+                      onClick={() => openDeleteDialog(user)}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
