@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut, RefreshCw } from "lucide-react";
+import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut, RefreshCw, Receipt } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -19,6 +19,8 @@ import { AdminSettings } from "@/components/AdminSettings";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { Copyright } from "@/components/Copyright";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { InvoiceManager } from "@/components/invoices/InvoiceManager";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -61,6 +63,7 @@ export const PDFSigner: React.FC = () => {
   const [isPlacingSignature, setIsPlacingSignature] = useState<boolean>(false);
   const [isMovingSignature, setIsMovingSignature] = useState<string | null>(null);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(false);
   const [isLoadingSignedDocuments, setIsLoadingSignedDocuments] = useState(true);
   const [collectedFiles, setCollectedFiles] = useState<File[]>([]);
   
@@ -531,6 +534,14 @@ export const PDFSigner: React.FC = () => {
               <UserProfileDropdown onSettingsClick={() => setShowAdminSettings(true)} />
               <Button
                 variant="outline"
+                onClick={() => setShowInvoices(true)}
+                className="flex items-center gap-2"
+              >
+                <Receipt className="h-4 w-4" />
+                Invoices
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setShowArchive(!showArchive)}
                 className="flex items-center gap-2"
               >
@@ -838,6 +849,13 @@ export const PDFSigner: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invoices Dialog */}
+      <Dialog open={showInvoices} onOpenChange={setShowInvoices}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden p-0">
+          <InvoiceManager />
+        </DialogContent>
+      </Dialog>
 
       
       {/* Copyright Footer */}

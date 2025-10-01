@@ -176,6 +176,239 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_company_settings: {
+        Row: {
+          address: string
+          bic: string | null
+          company_name: string
+          created_at: string | null
+          iban: string | null
+          id: string
+          legal_notes: string | null
+          logo_url: string | null
+          payment_terms: string | null
+          updated_at: string | null
+          user_id: string
+          vat_number: string | null
+        }
+        Insert: {
+          address: string
+          bic?: string | null
+          company_name: string
+          created_at?: string | null
+          iban?: string | null
+          id?: string
+          legal_notes?: string | null
+          logo_url?: string | null
+          payment_terms?: string | null
+          updated_at?: string | null
+          user_id: string
+          vat_number?: string | null
+        }
+        Update: {
+          address?: string
+          bic?: string | null
+          company_name?: string
+          created_at?: string | null
+          iban?: string | null
+          id?: string
+          legal_notes?: string | null
+          logo_url?: string | null
+          payment_terms?: string | null
+          updated_at?: string | null
+          user_id?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
+      invoice_customers: {
+        Row: {
+          address: string
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+          vat_number: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+          vat_number?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          invoice_id: string
+          line_order: number
+          name: string
+          product_id: string | null
+          quantity: number
+          subtotal: number
+          total: number
+          unit_price: number
+          vat_amount: number
+          vat_rate: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          invoice_id: string
+          line_order?: number
+          name: string
+          product_id?: string | null
+          quantity?: number
+          subtotal: number
+          total: number
+          unit_price: number
+          vat_amount: number
+          vat_rate: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string
+          line_order?: number
+          name?: string
+          product_id?: string | null
+          quantity?: number
+          subtotal?: number
+          total?: number
+          unit_price?: number
+          vat_amount?: number
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_products: {
+        Row: {
+          created_at: string | null
+          default_price: number
+          default_vat_rate: number
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_price: number
+          default_vat_rate?: number
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          default_price?: number
+          default_vat_rate?: number
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          created_at: string | null
+          custom_text: string | null
+          customer_id: string
+          due_date: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          pdf_url: string | null
+          status: string
+          subtotal: number
+          total: number
+          total_vat: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_text?: string | null
+          customer_id: string
+          due_date: string
+          id?: string
+          invoice_number: string
+          issue_date: string
+          pdf_url?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          total_vat?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_text?: string | null
+          customer_id?: string
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          pdf_url?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          total_vat?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -268,6 +501,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_invoice_number: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
