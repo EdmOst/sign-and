@@ -6,13 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, FileText, Users, Package, Settings, Download, Trash2, CheckCircle } from "lucide-react";
+import { Plus, FileText, Users, Package, Settings, Download, Trash2, CheckCircle, Mail } from "lucide-react";
 import { InvoiceForm } from "./InvoiceForm";
 import { CustomerManagement } from "./CustomerManagement";
 import { ProductManagement } from "./ProductManagement";
 import { InvoiceCompanySettings } from "./InvoiceCompanySettings";
+import { InvoiceEmailTemplates } from "./InvoiceEmailTemplates";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { generateInvoicePDF } from "@/lib/invoicePdfGenerator";
 
 interface Invoice {
   id: string;
@@ -96,6 +98,136 @@ export const InvoiceManager = () => {
     }
   };
 
+  const handleDownloadPDF = async (invoiceId: string) => {
+    try {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_customers (*),
+          invoice_items (*)
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      const { data: companySettings, error: settingsError } = await supabase
+        .from("invoice_company_settings")
+        .select("*")
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (!companySettings) {
+        toast.error("Please configure company settings first");
+        return;
+      }
+
+      const pdfBytes = await generateInvoicePDF(invoice, companySettings);
+      
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoice_number}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("Invoice PDF downloaded");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleSendEmail = async (invoiceId: string) => {
+    try {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_customers (*),
+          invoice_items (*)
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      if (!invoice.invoice_customers.email) {
+        toast.error("Customer does not have an email address");
+        return;
+      }
+
+      const { data: templates } = await supabase
+        .from("invoice_email_templates")
+        .select("*")
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (!templates) {
+        toast.error("Please create a default email template first");
+        setActiveTab("emails");
+        return;
+      }
+
+      const { data: companySettings, error: settingsError } = await supabase
+        .from("invoice_company_settings")
+        .select("*")
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (!companySettings) {
+        toast.error("Please configure company settings first");
+        return;
+      }
+
+      // Generate PDF
+      const pdfBytes = await generateInvoicePDF(invoice, companySettings);
+      const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+
+      // Replace placeholders in template
+      let subject = templates.subject
+        .replace(/{invoice_number}/g, invoice.invoice_number)
+        .replace(/{company_name}/g, companySettings.company_name)
+        .replace(/{customer_name}/g, invoice.invoice_customers.name);
+
+      let body = templates.body
+        .replace(/{invoice_number}/g, invoice.invoice_number)
+        .replace(/{company_name}/g, companySettings.company_name)
+        .replace(/{customer_name}/g, invoice.invoice_customers.name)
+        .replace(/{total}/g, `€${Number(invoice.total).toFixed(2)}`)
+        .replace(/{due_date}/g, format(new Date(invoice.due_date), "PP"));
+
+      // Call edge function to send email
+      const { data, error } = await supabase.functions.invoke("send-invoice-email", {
+        body: {
+          to: invoice.invoice_customers.email,
+          subject,
+          body,
+          pdfBase64: base64Pdf,
+          fileName: `${invoice.invoice_number}.pdf`,
+        },
+      });
+
+      if (error) {
+        if (error.message.includes("RESEND_API_KEY")) {
+          toast.error("Email service not configured. Please add RESEND_API_KEY to your Supabase secrets.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success(`Email sent to ${invoice.invoice_customers.email}`);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("Failed to send email");
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       draft: "secondary",
@@ -113,7 +245,7 @@ export const InvoiceManager = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="invoices">
             <FileText className="w-4 h-4 mr-2" />
             Invoices
@@ -129,6 +261,10 @@ export const InvoiceManager = () => {
           <TabsTrigger value="settings">
             <Settings className="w-4 h-4 mr-2" />
             Company Settings
+          </TabsTrigger>
+          <TabsTrigger value="emails">
+            <Mail className="w-4 h-4 mr-2" />
+            Email Templates
           </TabsTrigger>
         </TabsList>
 
@@ -178,7 +314,7 @@ export const InvoiceManager = () => {
                         <p className="font-medium">€{Number(invoice.total).toFixed(2)}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
@@ -188,6 +324,14 @@ export const InvoiceManager = () => {
                         }}
                       >
                         Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPDF(invoice.id)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        PDF
                       </Button>
                       {invoice.status !== "paid" && (
                         <Button
@@ -199,6 +343,14 @@ export const InvoiceManager = () => {
                           Mark as Paid
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendEmail(invoice.id)}
+                      >
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -225,6 +377,10 @@ export const InvoiceManager = () => {
 
         <TabsContent value="settings">
           <InvoiceCompanySettings />
+        </TabsContent>
+
+        <TabsContent value="emails">
+          <InvoiceEmailTemplates />
         </TabsContent>
       </Tabs>
 

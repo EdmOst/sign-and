@@ -187,6 +187,8 @@ export type Database = {
           legal_notes: string | null
           logo_url: string | null
           payment_terms: string | null
+          show_barcodes: boolean | null
+          show_product_codes: boolean | null
           updated_at: string | null
           user_id: string
           vat_number: string | null
@@ -201,6 +203,8 @@ export type Database = {
           legal_notes?: string | null
           logo_url?: string | null
           payment_terms?: string | null
+          show_barcodes?: boolean | null
+          show_product_codes?: boolean | null
           updated_at?: string | null
           user_id: string
           vat_number?: string | null
@@ -215,6 +219,8 @@ export type Database = {
           legal_notes?: string | null
           logo_url?: string | null
           payment_terms?: string | null
+          show_barcodes?: boolean | null
+          show_product_codes?: boolean | null
           updated_at?: string | null
           user_id?: string
           vat_number?: string | null
@@ -251,6 +257,39 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           vat_number?: string | null
+        }
+        Relationships: []
+      }
+      invoice_email_templates: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          subject: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          subject: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          subject?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -319,32 +358,38 @@ export type Database = {
       }
       invoice_products: {
         Row: {
+          barcode: string | null
           created_at: string | null
           default_price: number
           default_vat_rate: number
           description: string | null
           id: string
           name: string
+          product_code: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          barcode?: string | null
           created_at?: string | null
           default_price: number
           default_vat_rate?: number
           description?: string | null
           id?: string
           name: string
+          product_code?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          barcode?: string | null
           created_at?: string | null
           default_price?: number
           default_vat_rate?: number
           description?: string | null
           id?: string
           name?: string
+          product_code?: string | null
           updated_at?: string | null
           user_id?: string
         }

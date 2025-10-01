@@ -16,6 +16,8 @@ interface Product {
   description: string | null;
   default_price: number;
   default_vat_rate: number;
+  product_code: string | null;
+  barcode: string | null;
 }
 
 export const ProductManagement = () => {
@@ -29,6 +31,8 @@ export const ProductManagement = () => {
     description: "",
     default_price: "",
     default_vat_rate: "20",
+    product_code: "",
+    barcode: "",
   });
 
   useEffect(() => {
@@ -65,6 +69,8 @@ export const ProductManagement = () => {
         description: formData.description || null,
         default_price: parseFloat(formData.default_price),
         default_vat_rate: parseFloat(formData.default_vat_rate),
+        product_code: formData.product_code || null,
+        barcode: formData.barcode || null,
       };
 
       if (editingId) {
@@ -84,7 +90,7 @@ export const ProductManagement = () => {
 
       setShowForm(false);
       setEditingId(null);
-      setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20" });
+      setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20", product_code: "", barcode: "" });
       fetchProducts();
     } catch (error) {
       console.error("Error saving product:", error);
@@ -99,6 +105,8 @@ export const ProductManagement = () => {
       description: product.description || "",
       default_price: product.default_price.toString(),
       default_vat_rate: product.default_vat_rate.toString(),
+      product_code: product.product_code || "",
+      barcode: product.barcode || "",
     });
     setShowForm(true);
   };
@@ -127,7 +135,7 @@ export const ProductManagement = () => {
         <h2 className="text-xl font-semibold">Products & Services</h2>
         <Button onClick={() => {
           setEditingId(null);
-          setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20" });
+          setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20", product_code: "", barcode: "" });
           setShowForm(true);
         }}>
           <Plus className="w-4 h-4 mr-2" />
@@ -176,6 +184,18 @@ export const ProductManagement = () => {
                     <p className="text-sm text-muted-foreground">Default VAT Rate</p>
                     <p className="text-sm font-medium">{Number(product.default_vat_rate)}%</p>
                   </div>
+                  {product.product_code && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Product Code</p>
+                      <p className="text-sm font-medium">{product.product_code}</p>
+                    </div>
+                  )}
+                  {product.barcode && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Barcode</p>
+                      <p className="text-sm font-medium">{product.barcode}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -227,6 +247,24 @@ export const ProductManagement = () => {
                 value={formData.default_vat_rate}
                 onChange={(e) => setFormData({ ...formData, default_vat_rate: e.target.value })}
                 required
+              />
+            </div>
+            <div>
+              <Label htmlFor="product_code">Product Code</Label>
+              <Input
+                id="product_code"
+                value={formData.product_code}
+                onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
+                placeholder="SKU or product code"
+              />
+            </div>
+            <div>
+              <Label htmlFor="barcode">Barcode</Label>
+              <Input
+                id="barcode"
+                value={formData.barcode}
+                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                placeholder="Barcode number"
               />
             </div>
             <div className="flex gap-2 justify-end">

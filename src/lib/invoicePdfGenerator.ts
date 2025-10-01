@@ -1,0 +1,412 @@
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { format } from 'date-fns';
+
+interface InvoiceData {
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  custom_text?: string;
+  subtotal: number;
+  total_vat: number;
+  total: number;
+  invoice_customers: {
+    name: string;
+    address: string;
+    vat_number?: string;
+    email?: string;
+  };
+  invoice_items: Array<{
+    name: string;
+    description?: string;
+    quantity: number;
+    unit_price: number;
+    vat_rate: number;
+    subtotal: number;
+    vat_amount: number;
+    total: number;
+    product_code?: string;
+    barcode?: string;
+  }>;
+}
+
+interface CompanySettings {
+  company_name: string;
+  address: string;
+  vat_number?: string;
+  iban?: string;
+  bic?: string;
+  logo_url?: string;
+  payment_terms?: string;
+  legal_notes?: string;
+  show_product_codes?: boolean;
+  show_barcodes?: boolean;
+}
+
+export async function generateInvoicePDF(
+  invoiceData: InvoiceData,
+  companySettings: CompanySettings
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]); // A4 size
+  const { width, height } = page.getSize();
+  
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  let yPosition = height - 50;
+  const leftMargin = 50;
+  const rightMargin = width - 50;
+  
+  // Company Header
+  page.drawText(companySettings.company_name, {
+    x: leftMargin,
+    y: yPosition,
+    size: 20,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  
+  yPosition -= 25;
+  
+  const companyLines = companySettings.address.split('\n');
+  companyLines.forEach(line => {
+    page.drawText(line, {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 15;
+  });
+  
+  if (companySettings.vat_number) {
+    page.drawText(`VAT: ${companySettings.vat_number}`, {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 20;
+  }
+  
+  // Invoice Number and Date (right side)
+  yPosition = height - 50;
+  page.drawText('INVOICE', {
+    x: rightMargin - 150,
+    y: yPosition,
+    size: 24,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  
+  yPosition -= 30;
+  page.drawText(`Invoice #: ${invoiceData.invoice_number}`, {
+    x: rightMargin - 200,
+    y: yPosition,
+    size: 11,
+    font: fontBold,
+  });
+  
+  yPosition -= 20;
+  page.drawText(`Issue Date: ${format(new Date(invoiceData.issue_date), 'dd/MM/yyyy')}`, {
+    x: rightMargin - 200,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  
+  yPosition -= 15;
+  page.drawText(`Due Date: ${format(new Date(invoiceData.due_date), 'dd/MM/yyyy')}`, {
+    x: rightMargin - 200,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  
+  // Customer Information
+  yPosition -= 60;
+  page.drawText('Bill To:', {
+    x: leftMargin,
+    y: yPosition,
+    size: 12,
+    font: fontBold,
+  });
+  
+  yPosition -= 20;
+  page.drawText(invoiceData.invoice_customers.name, {
+    x: leftMargin,
+    y: yPosition,
+    size: 11,
+    font: fontBold,
+  });
+  
+  yPosition -= 15;
+  const customerAddressLines = invoiceData.invoice_customers.address.split('\n');
+  customerAddressLines.forEach(line => {
+    page.drawText(line, {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font,
+    });
+    yPosition -= 15;
+  });
+  
+  if (invoiceData.invoice_customers.vat_number) {
+    page.drawText(`VAT: ${invoiceData.invoice_customers.vat_number}`, {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font,
+    });
+    yPosition -= 15;
+  }
+  
+  if (invoiceData.invoice_customers.email) {
+    page.drawText(`Email: ${invoiceData.invoice_customers.email}`, {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font,
+    });
+    yPosition -= 15;
+  }
+  
+  // Items Table
+  yPosition -= 30;
+  
+  // Table Header
+  const tableTop = yPosition;
+  let xPosition = leftMargin;
+  
+  page.drawRectangle({
+    x: leftMargin,
+    y: yPosition - 20,
+    width: rightMargin - leftMargin,
+    height: 25,
+    color: rgb(0.95, 0.95, 0.95),
+  });
+  
+  const headers = ['Item', 'Qty', 'Unit Price', 'VAT %', 'Total'];
+  const columnWidths = [250, 50, 80, 60, 80];
+  
+  if (companySettings.show_product_codes) {
+    headers.unshift('Code');
+    columnWidths.unshift(60);
+  }
+  
+  xPosition = leftMargin + 5;
+  headers.forEach((header, i) => {
+    page.drawText(header, {
+      x: xPosition,
+      y: yPosition - 13,
+      size: 10,
+      font: fontBold,
+    });
+    xPosition += columnWidths[i];
+  });
+  
+  yPosition -= 30;
+  
+  // Table Rows
+  invoiceData.invoice_items.forEach(item => {
+    xPosition = leftMargin + 5;
+    
+    if (companySettings.show_product_codes && item.product_code) {
+      page.drawText(item.product_code.substring(0, 10), {
+        x: xPosition,
+        y: yPosition,
+        size: 9,
+        font,
+      });
+      xPosition += 60;
+    } else if (companySettings.show_product_codes) {
+      xPosition += 60;
+    }
+    
+    page.drawText(item.name.substring(0, 35), {
+      x: xPosition,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    xPosition += 250;
+    
+    page.drawText(item.quantity.toString(), {
+      x: xPosition,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    xPosition += 50;
+    
+    page.drawText(`€${Number(item.unit_price).toFixed(2)}`, {
+      x: xPosition,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    xPosition += 80;
+    
+    page.drawText(`${Number(item.vat_rate).toFixed(0)}%`, {
+      x: xPosition,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    xPosition += 60;
+    
+    page.drawText(`€${Number(item.total).toFixed(2)}`, {
+      x: xPosition,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    
+    yPosition -= 20;
+    
+    if (item.description) {
+      page.drawText(item.description.substring(0, 70), {
+        x: leftMargin + (companySettings.show_product_codes ? 65 : 5),
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      yPosition -= 20;
+    }
+  });
+  
+  // Totals
+  yPosition -= 20;
+  const totalsX = rightMargin - 200;
+  
+  page.drawText('Subtotal:', {
+    x: totalsX,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  page.drawText(`€${Number(invoiceData.subtotal).toFixed(2)}`, {
+    x: totalsX + 120,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  
+  yPosition -= 20;
+  page.drawText('Total VAT:', {
+    x: totalsX,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  page.drawText(`€${Number(invoiceData.total_vat).toFixed(2)}`, {
+    x: totalsX + 120,
+    y: yPosition,
+    size: 10,
+    font,
+  });
+  
+  yPosition -= 25;
+  page.drawRectangle({
+    x: totalsX - 5,
+    y: yPosition - 5,
+    width: 200,
+    height: 25,
+    color: rgb(0.95, 0.95, 0.95),
+  });
+  
+  page.drawText('TOTAL:', {
+    x: totalsX,
+    y: yPosition,
+    size: 12,
+    font: fontBold,
+  });
+  page.drawText(`€${Number(invoiceData.total).toFixed(2)}`, {
+    x: totalsX + 120,
+    y: yPosition,
+    size: 12,
+    font: fontBold,
+  });
+  
+  // Payment Information
+  yPosition -= 50;
+  
+  if (companySettings.payment_terms) {
+    page.drawText('Payment Terms:', {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font: fontBold,
+    });
+    yPosition -= 15;
+    page.drawText(companySettings.payment_terms, {
+      x: leftMargin,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    yPosition -= 20;
+  }
+  
+  if (companySettings.iban) {
+    page.drawText(`IBAN: ${companySettings.iban}`, {
+      x: leftMargin,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    yPosition -= 15;
+  }
+  
+  if (companySettings.bic) {
+    page.drawText(`BIC/SWIFT: ${companySettings.bic}`, {
+      x: leftMargin,
+      y: yPosition,
+      size: 9,
+      font,
+    });
+    yPosition -= 20;
+  }
+  
+  // Custom Text
+  if (invoiceData.custom_text) {
+    yPosition -= 10;
+    page.drawText('Notes:', {
+      x: leftMargin,
+      y: yPosition,
+      size: 10,
+      font: fontBold,
+    });
+    yPosition -= 15;
+    
+    const customTextLines = invoiceData.custom_text.split('\n');
+    customTextLines.forEach(line => {
+      page.drawText(line.substring(0, 80), {
+        x: leftMargin,
+        y: yPosition,
+        size: 9,
+        font,
+      });
+      yPosition -= 12;
+    });
+  }
+  
+  // Legal Notes (Footer)
+  if (companySettings.legal_notes) {
+    yPosition = 60;
+    page.drawText(companySettings.legal_notes.substring(0, 100), {
+      x: leftMargin,
+      y: yPosition,
+      size: 7,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+  }
+  
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
+}

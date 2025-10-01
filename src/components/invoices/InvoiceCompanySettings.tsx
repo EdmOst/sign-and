@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 export const InvoiceCompanySettings = () => {
@@ -21,6 +22,8 @@ export const InvoiceCompanySettings = () => {
     logo_url: "",
     payment_terms: "Payment due within 30 days",
     legal_notes: "",
+    show_product_codes: false,
+    show_barcodes: false,
   });
 
   useEffect(() => {
@@ -49,6 +52,8 @@ export const InvoiceCompanySettings = () => {
           logo_url: data.logo_url || "",
           payment_terms: data.payment_terms || "Payment due within 30 days",
           legal_notes: data.legal_notes || "",
+          show_product_codes: data.show_product_codes || false,
+          show_barcodes: data.show_barcodes || false,
         });
       }
     } catch (error) {
@@ -99,7 +104,7 @@ export const InvoiceCompanySettings = () => {
   };
 
   return (
-    <Card>
+    <Card className="max-h-[80vh] overflow-y-auto">
       <CardHeader>
         <CardTitle>Company Invoice Settings</CardTitle>
       </CardHeader>
@@ -178,6 +183,25 @@ export const InvoiceCompanySettings = () => {
               rows={3}
               placeholder="Add any legal disclaimers or footer text..."
             />
+          </div>
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-sm font-semibold">Invoice Display Options</h3>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show_product_codes">Show Product Codes on Invoices</Label>
+              <Switch
+                id="show_product_codes"
+                checked={formData.show_product_codes}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_product_codes: checked })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show_barcodes">Show Barcodes on Invoices</Label>
+              <Switch
+                id="show_barcodes"
+                checked={formData.show_barcodes}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_barcodes: checked })}
+              />
+            </div>
           </div>
           <Button type="submit" disabled={loading}>
             {loading ? "Saving..." : "Save Settings"}

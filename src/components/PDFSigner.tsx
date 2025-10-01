@@ -21,6 +21,7 @@ import { CompanyLogo } from "@/components/CompanyLogo";
 import { Copyright } from "@/components/Copyright";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InvoiceManager } from "@/components/invoices/InvoiceManager";
+import { InvoiceSelector } from "@/components/invoices/InvoiceSelector";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -124,18 +125,22 @@ export const PDFSigner: React.FC = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === "application/pdf") {
-      // Clean up previous URL
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
-      }
-      
-      // Create a blob URL immediately to avoid detached ArrayBuffer issues
-      const url = URL.createObjectURL(file);
-      setPdfFile(file);
-      setPdfUrl(url);
+      loadPdfFile(file);
     } else {
       toast.error("Please select a valid PDF file");
     }
+  };
+
+  const loadPdfFile = (file: File) => {
+    // Clean up previous URL
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+    }
+    
+    // Create a blob URL immediately to avoid detached ArrayBuffer issues
+    const url = URL.createObjectURL(file);
+    setPdfFile(file);
+    setPdfUrl(url);
   };
 
   const handlePageClick = useCallback((event: React.MouseEvent) => {
@@ -596,6 +601,9 @@ export const PDFSigner: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Invoice Selector */}
+              <InvoiceSelector onInvoiceLoad={loadPdfFile} />
 
               {/* Auto-upload Documents */}
               <Card className="shadow-medium">
