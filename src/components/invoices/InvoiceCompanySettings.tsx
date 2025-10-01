@@ -104,12 +104,13 @@ export const InvoiceCompanySettings = () => {
   };
 
   return (
-    <Card className="max-h-[80vh] overflow-y-auto">
-      <CardHeader>
-        <CardTitle>Company Invoice Settings</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-h-[75vh] overflow-y-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>Company Invoice Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="company_name">Company Name *</Label>
             <Input
@@ -203,11 +204,12 @@ export const InvoiceCompanySettings = () => {
               />
             </div>
           </div>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Saving..." : "Save Settings"}
           </Button>
         </form>
       </CardContent>
     </Card>
+    </div>
   );
 };

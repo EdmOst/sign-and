@@ -42,6 +42,14 @@ interface CompanySettings {
   show_barcodes?: boolean;
 }
 
+// Helper function to sanitize text for WinAnsi encoding
+function sanitizeText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x00-\xFF]/g, '');
+}
+
 export async function generateInvoicePDF(
   invoiceData: InvoiceData,
   companySettings: CompanySettings
@@ -58,7 +66,7 @@ export async function generateInvoicePDF(
   const rightMargin = width - 50;
   
   // Company Header
-  page.drawText(companySettings.company_name, {
+  page.drawText(sanitizeText(companySettings.company_name), {
     x: leftMargin,
     y: yPosition,
     size: 20,
@@ -70,7 +78,7 @@ export async function generateInvoicePDF(
   
   const companyLines = companySettings.address.split('\n');
   companyLines.forEach(line => {
-    page.drawText(line, {
+    page.drawText(sanitizeText(line), {
       x: leftMargin,
       y: yPosition,
       size: 10,
@@ -81,7 +89,7 @@ export async function generateInvoicePDF(
   });
   
   if (companySettings.vat_number) {
-    page.drawText(`VAT: ${companySettings.vat_number}`, {
+    page.drawText(sanitizeText(`VAT: ${companySettings.vat_number}`), {
       x: leftMargin,
       y: yPosition,
       size: 10,
@@ -215,7 +223,7 @@ export async function generateInvoicePDF(
     xPosition = leftMargin + 5;
     
     if (companySettings.show_product_codes && item.product_code) {
-      page.drawText(item.product_code.substring(0, 10), {
+      page.drawText(sanitizeText(item.product_code.substring(0, 10)), {
         x: xPosition,
         y: yPosition,
         size: 9,
@@ -226,7 +234,7 @@ export async function generateInvoicePDF(
       xPosition += 60;
     }
     
-    page.drawText(item.name.substring(0, 35), {
+    page.drawText(sanitizeText(item.name.substring(0, 35)), {
       x: xPosition,
       y: yPosition,
       size: 9,
@@ -268,7 +276,7 @@ export async function generateInvoicePDF(
     yPosition -= 20;
     
     if (item.description) {
-      page.drawText(item.description.substring(0, 70), {
+      page.drawText(sanitizeText(item.description.substring(0, 70)), {
         x: leftMargin + (companySettings.show_product_codes ? 65 : 5),
         y: yPosition,
         size: 8,
@@ -343,7 +351,7 @@ export async function generateInvoicePDF(
       font: fontBold,
     });
     yPosition -= 15;
-    page.drawText(companySettings.payment_terms, {
+    page.drawText(sanitizeText(companySettings.payment_terms), {
       x: leftMargin,
       y: yPosition,
       size: 9,
@@ -353,7 +361,7 @@ export async function generateInvoicePDF(
   }
   
   if (companySettings.iban) {
-    page.drawText(`IBAN: ${companySettings.iban}`, {
+    page.drawText(sanitizeText(`IBAN: ${companySettings.iban}`), {
       x: leftMargin,
       y: yPosition,
       size: 9,
@@ -363,7 +371,7 @@ export async function generateInvoicePDF(
   }
   
   if (companySettings.bic) {
-    page.drawText(`BIC/SWIFT: ${companySettings.bic}`, {
+    page.drawText(sanitizeText(`BIC/SWIFT: ${companySettings.bic}`), {
       x: leftMargin,
       y: yPosition,
       size: 9,
@@ -385,7 +393,7 @@ export async function generateInvoicePDF(
     
     const customTextLines = invoiceData.custom_text.split('\n');
     customTextLines.forEach(line => {
-      page.drawText(line.substring(0, 80), {
+      page.drawText(sanitizeText(line.substring(0, 80)), {
         x: leftMargin,
         y: yPosition,
         size: 9,
@@ -398,7 +406,7 @@ export async function generateInvoicePDF(
   // Legal Notes (Footer)
   if (companySettings.legal_notes) {
     yPosition = 60;
-    page.drawText(companySettings.legal_notes.substring(0, 100), {
+    page.drawText(sanitizeText(companySettings.legal_notes.substring(0, 100)), {
       x: leftMargin,
       y: yPosition,
       size: 7,

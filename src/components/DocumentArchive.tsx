@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Document, Page } from "react-pdf";
-import { ArrowLeft, Download, Eye, Search, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Download, Eye, Search, Calendar, FileText, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Copyright } from "@/components/Copyright";
+import { DocumentEmailDialog } from "./DocumentEmailDialog";
 
 interface DocumentData {
   id: string;
@@ -40,6 +41,8 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDocument, setSelectedDocument] = useState<DocumentData | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [documentToEmail, setDocumentToEmail] = useState<{ data: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -192,6 +195,14 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
     }
   };
 
+  const handleEmailDocument = (document: DocumentData) => {
+    setDocumentToEmail({
+      data: document.pdf_data,
+      name: document.original_filename,
+    });
+    setEmailDialogOpen(true);
+  };
+
   const filteredDocuments = documents.filter(doc =>
     doc.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -329,6 +340,13 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                       >
                         <Download className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEmailDocument(document)}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -401,6 +419,15 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
         </Card>
       )}
 
+      {/* Email Dialog */}
+      {documentToEmail && (
+        <DocumentEmailDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          documentData={documentToEmail.data}
+          documentName={documentToEmail.name}
+        />
+      )}
     </div>
   );
 };
