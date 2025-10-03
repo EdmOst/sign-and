@@ -184,11 +184,22 @@ export type Database = {
           created_at: string | null
           iban: string | null
           id: string
+          issuer_email: string | null
+          issuer_first_name: string | null
+          issuer_last_name: string | null
+          issuer_phone: string | null
+          issuer_role: string | null
           legal_notes: string | null
           logo_url: string | null
           payment_terms: string | null
           show_barcodes: boolean | null
           show_product_codes: boolean | null
+          smtp_from_email: string | null
+          smtp_from_name: string | null
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+          smtp_username: string | null
           updated_at: string | null
           user_id: string
           vat_number: string | null
@@ -200,11 +211,22 @@ export type Database = {
           created_at?: string | null
           iban?: string | null
           id?: string
+          issuer_email?: string | null
+          issuer_first_name?: string | null
+          issuer_last_name?: string | null
+          issuer_phone?: string | null
+          issuer_role?: string | null
           legal_notes?: string | null
           logo_url?: string | null
           payment_terms?: string | null
           show_barcodes?: boolean | null
           show_product_codes?: boolean | null
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_username?: string | null
           updated_at?: string | null
           user_id: string
           vat_number?: string | null
@@ -216,11 +238,22 @@ export type Database = {
           created_at?: string | null
           iban?: string | null
           id?: string
+          issuer_email?: string | null
+          issuer_first_name?: string | null
+          issuer_last_name?: string | null
+          issuer_phone?: string | null
+          issuer_role?: string | null
           legal_notes?: string | null
           logo_url?: string | null
           payment_terms?: string | null
           show_barcodes?: boolean | null
           show_product_codes?: boolean | null
+          smtp_from_email?: string | null
+          smtp_from_name?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_username?: string | null
           updated_at?: string | null
           user_id?: string
           vat_number?: string | null
@@ -231,6 +264,8 @@ export type Database = {
         Row: {
           address: string
           created_at: string | null
+          customer_group: string | null
+          customer_number: string | null
           email: string | null
           id: string
           name: string
@@ -241,6 +276,8 @@ export type Database = {
         Insert: {
           address: string
           created_at?: string | null
+          customer_group?: string | null
+          customer_number?: string | null
           email?: string | null
           id?: string
           name: string
@@ -251,6 +288,8 @@ export type Database = {
         Update: {
           address?: string
           created_at?: string | null
+          customer_group?: string | null
+          customer_number?: string | null
           email?: string | null
           id?: string
           name?: string
@@ -400,11 +439,14 @@ export type Database = {
           created_at: string | null
           custom_text: string | null
           customer_id: string
+          discount_amount: number | null
+          discount_percentage: number | null
           due_date: string
           id: string
           invoice_number: string
           issue_date: string
           pdf_url: string | null
+          sent_at: string | null
           status: string
           subtotal: number
           total: number
@@ -416,11 +458,14 @@ export type Database = {
           created_at?: string | null
           custom_text?: string | null
           customer_id: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
           due_date: string
           id?: string
           invoice_number: string
           issue_date: string
           pdf_url?: string | null
+          sent_at?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -432,11 +477,14 @@ export type Database = {
           created_at?: string | null
           custom_text?: string | null
           customer_id?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
           due_date?: string
           id?: string
           invoice_number?: string
           issue_date?: string
           pdf_url?: string | null
+          sent_at?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -546,6 +594,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_customer_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_invoice_number: {
         Args: { p_user_id: string }
         Returns: string
