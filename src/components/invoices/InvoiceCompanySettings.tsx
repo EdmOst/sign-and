@@ -24,6 +24,17 @@ export const InvoiceCompanySettings = () => {
     legal_notes: "",
     show_product_codes: false,
     show_barcodes: false,
+    smtp_host: "",
+    smtp_port: 587,
+    smtp_username: "",
+    smtp_password: "",
+    smtp_from_email: "",
+    smtp_from_name: "",
+    issuer_first_name: "",
+    issuer_last_name: "",
+    issuer_role: "",
+    issuer_email: "",
+    issuer_phone: "",
   });
 
   useEffect(() => {
@@ -54,6 +65,17 @@ export const InvoiceCompanySettings = () => {
           legal_notes: data.legal_notes || "",
           show_product_codes: data.show_product_codes || false,
           show_barcodes: data.show_barcodes || false,
+          smtp_host: data.smtp_host || "",
+          smtp_port: data.smtp_port || 587,
+          smtp_username: data.smtp_username || "",
+          smtp_password: data.smtp_password || "",
+          smtp_from_email: data.smtp_from_email || "",
+          smtp_from_name: data.smtp_from_name || "",
+          issuer_first_name: data.issuer_first_name || "",
+          issuer_last_name: data.issuer_last_name || "",
+          issuer_role: data.issuer_role || "",
+          issuer_email: data.issuer_email || "",
+          issuer_phone: data.issuer_phone || "",
         });
       }
     } catch (error) {
@@ -204,6 +226,119 @@ export const InvoiceCompanySettings = () => {
               />
             </div>
           </div>
+          
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-sm font-semibold">SMTP Email Configuration</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="smtp_host">SMTP Host</Label>
+                <Input
+                  id="smtp_host"
+                  value={formData.smtp_host}
+                  onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
+                  placeholder="smtp.gmail.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="smtp_port">SMTP Port</Label>
+                <Input
+                  id="smtp_port"
+                  type="number"
+                  value={formData.smtp_port}
+                  onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="smtp_username">SMTP Username</Label>
+                <Input
+                  id="smtp_username"
+                  value={formData.smtp_username}
+                  onChange={(e) => setFormData({ ...formData, smtp_username: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="smtp_password">SMTP Password</Label>
+                <Input
+                  id="smtp_password"
+                  type="password"
+                  value={formData.smtp_password}
+                  onChange={(e) => setFormData({ ...formData, smtp_password: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="smtp_from_email">From Email</Label>
+                <Input
+                  id="smtp_from_email"
+                  type="email"
+                  value={formData.smtp_from_email}
+                  onChange={(e) => setFormData({ ...formData, smtp_from_email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="smtp_from_name">From Name</Label>
+                <Input
+                  id="smtp_from_name"
+                  value={formData.smtp_from_name}
+                  onChange={(e) => setFormData({ ...formData, smtp_from_name: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-sm font-semibold">Invoice Issuer Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="issuer_first_name">First Name *</Label>
+                <Input
+                  id="issuer_first_name"
+                  value={formData.issuer_first_name}
+                  onChange={(e) => setFormData({ ...formData, issuer_first_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="issuer_last_name">Last Name *</Label>
+                <Input
+                  id="issuer_last_name"
+                  value={formData.issuer_last_name}
+                  onChange={(e) => setFormData({ ...formData, issuer_last_name: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="issuer_role">Role</Label>
+              <Input
+                id="issuer_role"
+                value={formData.issuer_role}
+                onChange={(e) => setFormData({ ...formData, issuer_role: e.target.value })}
+                placeholder="e.g., CEO, Sales Manager"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="issuer_email">Email</Label>
+                <Input
+                  id="issuer_email"
+                  type="email"
+                  value={formData.issuer_email}
+                  onChange={(e) => setFormData({ ...formData, issuer_email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="issuer_phone">Phone</Label>
+                <Input
+                  id="issuer_phone"
+                  value={formData.issuer_phone}
+                  onChange={(e) => setFormData({ ...formData, issuer_phone: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Saving..." : "Save Settings"}
           </Button>

@@ -5,15 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, Search } from "lucide-react";
 
 interface Customer {
   id: string;
+  customer_number: string;
   name: string;
   address: string;
+  customer_group: 'private' | 'company';
   vat_number: string | null;
   email: string | null;
 }
@@ -21,12 +25,16 @@ interface Customer {
 export const CustomerManagement = () => {
   const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     address: "",
+    customer_group: "private" as 'private' | 'company',
     vat_number: "",
     email: "",
   });
@@ -37,15 +45,34 @@ export const CustomerManagement = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredCustomers(customers);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = customers.filter(customer =>
+        customer.name.toLowerCase().includes(query) ||
+        customer.customer_number.toLowerCase().includes(query) ||
+        customer.address.toLowerCase().includes(query) ||
+        customer.customer_group.toLowerCase().includes(query) ||
+        (customer.vat_number && customer.vat_number.toLowerCase().includes(query)) ||
+        (customer.email && customer.email.toLowerCase().includes(query))
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [searchQuery, customers]);
+
   const fetchCustomers = async () => {
     try {
       const { data, error } = await supabase
         .from("invoice_customers")
         .select("*")
-        .order("name");
+        .order("customer_number");
 
       if (error) throw error;
-      setCustomers(data || []);
+      const typedData = (data || []) as Customer[];
+      setCustomers(typedData);
+      setFilteredCustomers(typedData);
     } catch (error) {
       console.error("Error fetching customers:", error);
       toast.error("Failed to load customers");
@@ -74,16 +101,27 @@ export const CustomerManagement = () => {
         if (error) throw error;
         toast.success("Customer updated successfully");
       } else {
-        const { error } = await supabase
+        const { data: result, error } = await supabase
           .from("invoice_customers")
-          .insert(data);
+          .insert(data)
+          .select()
+          .single();
         if (error) throw error;
+        
+        const { data: numberData, error: numberError } = await supabase
+          .rpc('generate_customer_number');
+        if (!numberError && numberData) {
+          await supabase
+            .from("invoice_customers")
+            .update({ customer_number: numberData })
+            .eq("id", result.id);
+        }
         toast.success("Customer created successfully");
       }
 
       setShowForm(false);
       setEditingId(null);
-      setFormData({ name: "", address: "", vat_number: "", email: "" });
+      setFormData({ name: "", address: "", customer_group: "private", vat_number: "", email: "" });
       fetchCustomers();
     } catch (error) {
       console.error("Error saving customer:", error);
@@ -96,6 +134,7 @@ export const CustomerManagement = () => {
     setFormData({
       name: customer.name,
       address: customer.address,
+      customer_group: customer.customer_group,
       vat_number: customer.vat_number || "",
       email: customer.email || "",
     });
@@ -122,11 +161,19 @@ export const CustomerManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Customers</h2>
+      <div className="flex justify-between items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
         <Button onClick={() => {
           setEditingId(null);
-          setFormData({ name: "", address: "", vat_number: "", email: "" });
+          setFormData({ name: "", address: "", customer_group: "private", vat_number: "", email: "" });
           setShowForm(true);
         }}>
           <Plus className="w-4 h-4 mr-2" />
@@ -136,48 +183,66 @@ export const CustomerManagement = () => {
 
       {loading ? (
         <div className="text-center py-12">Loading...</div>
-      ) : customers.length === 0 ? (
+      ) : filteredCustomers.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No customers yet. Add your first customer to get started.
+            {searchQuery ? "No customers found matching your search." : "No customers yet. Add your first customer to get started."}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {customers.map((customer) => (
-            <Card key={customer.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{customer.name}</span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(customer.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Address</p>
-                  <p className="text-sm whitespace-pre-wrap">{customer.address}</p>
-                </div>
-                {customer.vat_number && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">VAT Number</p>
-                    <p className="text-sm">{customer.vat_number}</p>
-                  </div>
-                )}
-                {customer.email && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="text-sm">{customer.email}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        <div className="space-y-2">
+          {filteredCustomers.map((customer) => (
+            <Collapsible
+              key={customer.id}
+              open={expandedId === customer.id}
+              onOpenChange={() => setExpandedId(expandedId === customer.id ? null : customer.id)}
+            >
+              <Card>
+                <CollapsibleTrigger className="w-full">
+                  <CardHeader className="py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-left">
+                        <ChevronDown className={`w-4 h-4 transition-transform ${expandedId === customer.id ? 'transform rotate-180' : ''}`} />
+                        <div>
+                          <p className="font-medium">{customer.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {customer.customer_number} • {customer.customer_group}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(customer.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2 pt-0">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Address</p>
+                      <p className="text-sm whitespace-pre-wrap">{customer.address}</p>
+                    </div>
+                    {customer.vat_number && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">VAT Number</p>
+                        <p className="text-sm">{customer.vat_number}</p>
+                      </div>
+                    )}
+                    {customer.email && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Email</p>
+                        <p className="text-sm">{customer.email}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           ))}
         </div>
       )}
@@ -196,6 +261,21 @@ export const CustomerManagement = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
+            </div>
+            <div>
+              <Label htmlFor="customer_group">Customer Group *</Label>
+              <Select
+                value={formData.customer_group}
+                onValueChange={(value: 'private' | 'company') => setFormData({ ...formData, customer_group: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="company">Company</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="address">Address *</Label>

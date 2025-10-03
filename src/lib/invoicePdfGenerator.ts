@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { format } from 'date-fns';
+import { numberToWords } from './numberToWords';
 
 interface InvoiceData {
   invoice_number: string;
@@ -7,6 +8,8 @@ interface InvoiceData {
   due_date: string;
   custom_text?: string;
   subtotal: number;
+  discount_percentage?: number;
+  discount_amount?: number;
   total_vat: number;
   total: number;
   invoice_customers: {
@@ -40,6 +43,11 @@ interface CompanySettings {
   legal_notes?: string;
   show_product_codes?: boolean;
   show_barcodes?: boolean;
+  issuer_first_name?: string;
+  issuer_last_name?: string;
+  issuer_role?: string;
+  issuer_email?: string;
+  issuer_phone?: string;
 }
 
 // Helper function to sanitize text for WinAnsi encoding
@@ -289,7 +297,7 @@ export async function generateInvoicePDF(
   
   // Totals
   yPosition -= 20;
-  const totalsX = rightMargin - 200;
+  const totalsX = rightMargin - 180;
   
   page.drawText('Subtotal:', {
     x: totalsX,
@@ -298,11 +306,32 @@ export async function generateInvoicePDF(
     font,
   });
   page.drawText(`€${Number(invoiceData.subtotal).toFixed(2)}`, {
-    x: totalsX + 120,
+    x: totalsX + 100,
     y: yPosition,
     size: 10,
     font,
   });
+  
+  // Discount if present
+  if (invoiceData.discount_amount && invoiceData.discount_amount > 0) {
+    yPosition -= 20;
+    const discountText = invoiceData.discount_percentage 
+      ? `Discount (${invoiceData.discount_percentage}%):` 
+      : 'Discount:';
+    page.drawText(discountText, {
+      x: totalsX,
+      y: yPosition,
+      size: 10,
+      font,
+    });
+    page.drawText(`-€${Number(invoiceData.discount_amount).toFixed(2)}`, {
+      x: totalsX + 100,
+      y: yPosition,
+      size: 10,
+      font,
+      color: rgb(0.8, 0, 0),
+    });
+  }
   
   yPosition -= 20;
   page.drawText('Total VAT:', {
@@ -312,7 +341,7 @@ export async function generateInvoicePDF(
     font,
   });
   page.drawText(`€${Number(invoiceData.total_vat).toFixed(2)}`, {
-    x: totalsX + 120,
+    x: totalsX + 100,
     y: yPosition,
     size: 10,
     font,
@@ -322,7 +351,7 @@ export async function generateInvoicePDF(
   page.drawRectangle({
     x: totalsX - 5,
     y: yPosition - 5,
-    width: 200,
+    width: 180,
     height: 25,
     color: rgb(0.95, 0.95, 0.95),
   });
@@ -334,10 +363,21 @@ export async function generateInvoicePDF(
     font: fontBold,
   });
   page.drawText(`€${Number(invoiceData.total).toFixed(2)}`, {
-    x: totalsX + 120,
+    x: totalsX + 100,
     y: yPosition,
     size: 12,
     font: fontBold,
+  });
+  
+  // Total in words
+  yPosition -= 25;
+  const totalInWords = numberToWords(Number(invoiceData.total));
+  page.drawText(sanitizeText(totalInWords), {
+    x: totalsX,
+    y: yPosition,
+    size: 8,
+    font,
+    color: rgb(0.4, 0.4, 0.4),
   });
   
   // Payment Information
@@ -403,9 +443,55 @@ export async function generateInvoicePDF(
     });
   }
   
-  // Legal Notes (Footer)
+  // Invoice Issuer Info (Footer)
+  yPosition = 80;
+  if (companySettings.issuer_first_name && companySettings.issuer_last_name) {
+    const issuerName = `${companySettings.issuer_first_name} ${companySettings.issuer_last_name}`;
+    page.drawText(sanitizeText(issuerName), {
+      x: leftMargin,
+      y: yPosition,
+      size: 9,
+      font: fontBold,
+    });
+    yPosition -= 12;
+    
+    if (companySettings.issuer_role) {
+      page.drawText(sanitizeText(companySettings.issuer_role), {
+        x: leftMargin,
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      yPosition -= 12;
+    }
+    
+    if (companySettings.issuer_email) {
+      page.drawText(sanitizeText(companySettings.issuer_email), {
+        x: leftMargin,
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      yPosition -= 12;
+    }
+    
+    if (companySettings.issuer_phone) {
+      page.drawText(sanitizeText(companySettings.issuer_phone), {
+        x: leftMargin,
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      yPosition -= 15;
+    }
+  }
+  
+  // Legal Notes
   if (companySettings.legal_notes) {
-    yPosition = 60;
+    if (yPosition < 50) yPosition = 50;
     page.drawText(sanitizeText(companySettings.legal_notes.substring(0, 100)), {
       x: leftMargin,
       y: yPosition,

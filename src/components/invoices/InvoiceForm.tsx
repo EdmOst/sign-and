@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { logActivity } from "@/lib/activityLogger";
 
 interface InvoiceItem {
   id?: string;
@@ -46,6 +47,7 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
   const [issueDate, setIssueDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [dueDate, setDueDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"));
   const [customText, setCustomText] = useState("");
+  const [discountPercentage, setDiscountPercentage] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([]);
 
   useEffect(() => {
@@ -88,6 +90,7 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
       setIssueDate(invoice.issue_date);
       setDueDate(invoice.due_date);
       setCustomText(invoice.custom_text || "");
+      setDiscountPercentage(Number(invoice.discount_percentage) || 0);
 
       const { data: invoiceItems, error: itemsError } = await supabase
         .from("invoice_items")
@@ -109,7 +112,7 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
       description: "",
       quantity: 1,
       unit_price: 0,
-      vat_rate: 20,
+      vat_rate: 21,
       subtotal: 0,
       vat_amount: 0,
       total: 0,
@@ -146,9 +149,11 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
 
   const calculateTotals = () => {
     const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const discountAmount = (subtotal * discountPercentage) / 100;
+    const subtotalAfterDiscount = subtotal - discountAmount;
     const totalVat = items.reduce((sum, item) => sum + item.vat_amount, 0);
-    const total = items.reduce((sum, item) => sum + item.total, 0);
-    return { subtotal, totalVat, total };
+    const total = subtotalAfterDiscount + totalVat;
+    return { subtotal, discountAmount, totalVat, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +172,7 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
 
     setLoading(true);
     try {
-      const { subtotal, totalVat, total } = calculateTotals();
+      const { subtotal, discountAmount, totalVat, total } = calculateTotals();
 
       let invoiceNumber = "";
       if (!invoiceId) {
@@ -185,6 +190,8 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
         due_date: dueDate,
         custom_text: customText,
         subtotal,
+        discount_percentage: discountPercentage,
+        discount_amount: discountAmount,
         total_vat: totalVat,
         total,
         status: "draft",
@@ -233,6 +240,23 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
 
       if (itemsError) throw itemsError;
 
+      // Log activity
+      await logActivity({
+        userId: user.id,
+        userName: user.email || undefined,
+        userEmail: user.email || undefined,
+        actionType: invoiceId ? "invoice_updated" : "invoice_created",
+        actionDescription: invoiceId 
+          ? `Updated invoice ${invoiceNumber || invoiceId}` 
+          : `Created invoice ${invoiceNumber}`,
+        metadata: {
+          invoice_id: finalInvoiceId,
+          invoice_number: invoiceNumber || undefined,
+          total,
+          customer_id: customerId,
+        },
+      });
+
       toast.success(invoiceId ? "Invoice updated successfully" : "Invoice created successfully");
       onClose();
     } catch (error) {
@@ -243,7 +267,7 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
     }
   };
 
-  const { subtotal, totalVat, total } = calculateTotals();
+  const { subtotal, discountAmount, totalVat, total } = calculateTotals();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -283,14 +307,31 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="customText">Custom Text / Notes</Label>
-        <Textarea
-          value={customText}
-          onChange={(e) => setCustomText(e.target.value)}
-          placeholder="Add any custom notes or terms..."
-          rows={3}
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="customText">Custom Text / Notes</Label>
+          <Textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="Add any custom notes or terms..."
+            rows={3}
+          />
+        </div>
+        <div>
+          <Label htmlFor="discount">Discount (%)</Label>
+          <Input
+            id="discount"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={discountPercentage}
+            onChange={(e) => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Discount amount: €{discountAmount.toFixed(2)}
+          </p>
+        </div>
       </div>
 
       <div className="border rounded-lg p-4">
@@ -397,6 +438,12 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
             <span>Subtotal:</span>
             <span>€{subtotal.toFixed(2)}</span>
           </div>
+          {discountPercentage > 0 && (
+            <div className="flex justify-between text-sm text-red-600">
+              <span>Discount ({discountPercentage}%):</span>
+              <span>-€{discountAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span>Total VAT:</span>
             <span>€{totalVat.toFixed(2)}</span>

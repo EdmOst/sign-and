@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, FileText, Users, Package, Settings, Download, Trash2, CheckCircle, Mail } from "lucide-react";
+import { logActivity } from "@/lib/activityLogger";
 import { InvoiceForm } from "./InvoiceForm";
 import { CustomerManagement } from "./CustomerManagement";
 import { ProductManagement } from "./ProductManagement";
@@ -15,6 +16,7 @@ import { InvoiceEmailTemplates } from "./InvoiceEmailTemplates";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { generateInvoicePDF } from "@/lib/invoicePdfGenerator";
+import { Send } from "lucide-react";
 
 interface Invoice {
   id: string;
@@ -23,6 +25,9 @@ interface Invoice {
   due_date: string;
   status: string;
   total: number;
+  discount_percentage?: number;
+  discount_amount?: number;
+  sent_at?: string;
   invoice_customers: {
     name: string;
   };
@@ -74,6 +79,16 @@ export const InvoiceManager = () => {
         .eq("id", id);
 
       if (error) throw error;
+      
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_deleted",
+        actionDescription: `Deleted invoice ${id}`,
+        metadata: { invoice_id: id },
+      });
+      
       toast.success("Invoice deleted successfully");
       fetchInvoices();
     } catch (error) {
@@ -90,6 +105,16 @@ export const InvoiceManager = () => {
         .eq("id", id);
 
       if (error) throw error;
+      
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_marked_paid",
+        actionDescription: `Marked invoice ${id} as paid`,
+        metadata: { invoice_id: id },
+      });
+      
       toast.success("Invoice marked as paid");
       fetchInvoices();
     } catch (error) {
@@ -133,6 +158,18 @@ export const InvoiceManager = () => {
       link.download = `${invoice.invoice_number}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_downloaded",
+        actionDescription: `Downloaded PDF for invoice ${invoice.invoice_number}`,
+        metadata: { 
+          invoice_id: invoiceId,
+          invoice_number: invoice.invoice_number,
+        },
+      });
 
       toast.success("Invoice PDF downloaded");
     } catch (error) {
@@ -221,7 +258,27 @@ export const InvoiceManager = () => {
         return;
       }
 
+      // Mark invoice as sent
+      await supabase
+        .from("invoices")
+        .update({ sent_at: new Date().toISOString() })
+        .eq("id", invoiceId);
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_emailed",
+        actionDescription: `Sent invoice ${invoice.invoice_number} to ${invoice.invoice_customers.email}`,
+        metadata: { 
+          invoice_id: invoiceId,
+          invoice_number: invoice.invoice_number,
+          recipient_email: invoice.invoice_customers.email,
+        },
+      });
+
       toast.success(`Email sent to ${invoice.invoice_customers.email}`);
+      fetchInvoices();
     } catch (error) {
       console.error("Error sending email:", error);
       toast.error("Failed to send email");
@@ -229,13 +286,16 @@ export const InvoiceManager = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      draft: "secondary",
-      issued: "default",
-      paid: "outline",
-      cancelled: "destructive",
+    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", className: string }> = {
+      draft: { variant: "secondary", className: "bg-yellow-500 hover:bg-yellow-600 text-white" },
+      issued: { variant: "default", className: "" },
+      paid: { variant: "outline", className: "bg-green-500 hover:bg-green-600 text-white border-green-500" },
+      credited: { variant: "destructive", className: "bg-red-500 hover:bg-red-600" },
+      deleted: { variant: "outline", className: "bg-gray-300 text-gray-500 opacity-50" },
     };
-    return <Badge variant={variants[status] || "default"}>{status.toUpperCase()}</Badge>;
+    
+    const config = statusConfig[status] || { variant: "default", className: "" };
+    return <Badge variant={config.variant} className={config.className}>{status.toUpperCase()}</Badge>;
   };
 
   return (
@@ -288,11 +348,19 @@ export const InvoiceManager = () => {
           ) : (
             <div className="space-y-4">
               {invoices.map((invoice) => (
-                <Card key={invoice.id}>
+                <Card key={invoice.id} className={invoice.status === 'deleted' ? 'opacity-50' : ''}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-lg font-medium">
-                      {invoice.invoice_number}
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg font-medium">
+                        {invoice.invoice_number}
+                      </CardTitle>
+                      {invoice.sent_at && (
+                        <Badge variant="outline" className="gap-1">
+                          <Send className="w-3 h-3" />
+                          Sent
+                        </Badge>
+                      )}
+                    </div>
                     {getStatusBadge(invoice.status)}
                   </CardHeader>
                   <CardContent>
@@ -322,6 +390,7 @@ export const InvoiceManager = () => {
                           setEditingInvoice(invoice.id);
                           setShowInvoiceForm(true);
                         }}
+                        disabled={invoice.status === 'deleted'}
                       >
                         Edit
                       </Button>
