@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
 
 export const InvoiceModuleToggle = () => {
   const [enabled, setEnabled] = useState(true);
@@ -67,29 +65,17 @@ export const InvoiceModuleToggle = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Invoice Module
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="invoice-module">Enable Invoice Module</Label>
-            <p className="text-sm text-muted-foreground">
-              Control visibility and access to the invoice management system
-            </p>
-          </div>
-          <Switch
-            id="invoice-module"
-            checked={enabled}
-            onCheckedChange={handleToggle}
-            disabled={loading}
-          />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between p-4 border rounded-lg">
+      <div>
+        <h3 className="font-medium">Invoicing Module</h3>
+        <p className="text-sm text-muted-foreground">Enable invoice creation and management</p>
+      </div>
+      <Switch
+        id="invoice-module"
+        checked={enabled}
+        onCheckedChange={handleToggle}
+        disabled={loading}
+      />
+    </div>
   );
 };

@@ -588,13 +588,7 @@ export const AdminSettings: React.FC = () => {
                 View Logs
               </Button>
             </div>
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">Invoicing Module</h3>
-                <p className="text-sm text-muted-foreground">Enable invoice creation and management</p>
-              </div>
-              <Badge variant="secondary">Coming Soon</Badge>
-            </div>
+            <InvoiceModuleToggle />
           </div>
         </CardContent>
       </Card>
@@ -695,8 +689,6 @@ export const AdminSettings: React.FC = () => {
         settings={companySettings} 
         onSettingsUpdate={setCompanySettings}
       />
-
-      <InvoiceModuleToggle />
 
       <LicenseManager />
 
