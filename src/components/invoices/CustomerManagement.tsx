@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ChevronDown, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, Search, FileText } from "lucide-react";
+import { CustomerInvoiceHistory } from "./CustomerInvoiceHistory";
 
 interface Customer {
   id: string;
@@ -19,6 +20,7 @@ interface Customer {
   address: string;
   customer_group: 'private' | 'company';
   vat_number: string | null;
+  person_id: string | null;
   email: string | null;
 }
 
@@ -31,11 +33,13 @@ export const CustomerManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showInvoiceHistory, setShowInvoiceHistory] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     customer_group: "private" as 'private' | 'company',
     vat_number: "",
+    person_id: "",
     email: "",
   });
 
@@ -56,6 +60,7 @@ export const CustomerManagement = () => {
         customer.address.toLowerCase().includes(query) ||
         customer.customer_group.toLowerCase().includes(query) ||
         (customer.vat_number && customer.vat_number.toLowerCase().includes(query)) ||
+        (customer.person_id && customer.person_id.toLowerCase().includes(query)) ||
         (customer.email && customer.email.toLowerCase().includes(query))
       );
       setFilteredCustomers(filtered);
@@ -90,6 +95,7 @@ export const CustomerManagement = () => {
         user_id: user.id,
         ...formData,
         vat_number: formData.vat_number || null,
+        person_id: formData.person_id || null,
         email: formData.email || null,
       };
 
@@ -121,7 +127,7 @@ export const CustomerManagement = () => {
 
       setShowForm(false);
       setEditingId(null);
-      setFormData({ name: "", address: "", customer_group: "private", vat_number: "", email: "" });
+      setFormData({ name: "", address: "", customer_group: "private", vat_number: "", person_id: "", email: "" });
       fetchCustomers();
     } catch (error) {
       console.error("Error saving customer:", error);
@@ -136,6 +142,7 @@ export const CustomerManagement = () => {
       address: customer.address,
       customer_group: customer.customer_group,
       vat_number: customer.vat_number || "",
+      person_id: customer.person_id || "",
       email: customer.email || "",
     });
     setShowForm(true);
@@ -173,7 +180,7 @@ export const CustomerManagement = () => {
         </div>
         <Button onClick={() => {
           setEditingId(null);
-          setFormData({ name: "", address: "", customer_group: "private", vat_number: "", email: "" });
+          setFormData({ name: "", address: "", customer_group: "private", vat_number: "", person_id: "", email: "" });
           setShowForm(true);
         }}>
           <Plus className="w-4 h-4 mr-2" />
@@ -211,6 +218,9 @@ export const CustomerManagement = () => {
                         </div>
                       </div>
                       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => setShowInvoiceHistory(customer.id)}>
+                          <FileText className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -227,10 +237,16 @@ export const CustomerManagement = () => {
                       <p className="text-sm font-medium text-muted-foreground">Address</p>
                       <p className="text-sm whitespace-pre-wrap">{customer.address}</p>
                     </div>
-                    {customer.vat_number && (
+                    {customer.customer_group === 'company' && customer.vat_number && (
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">VAT Number</p>
                         <p className="text-sm">{customer.vat_number}</p>
+                      </div>
+                    )}
+                    {customer.customer_group === 'private' && customer.person_id && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Person ID</p>
+                        <p className="text-sm">{customer.person_id}</p>
                       </div>
                     )}
                     {customer.email && (
@@ -287,14 +303,26 @@ export const CustomerManagement = () => {
                 required
               />
             </div>
-            <div>
-              <Label htmlFor="vat_number">VAT Number</Label>
-              <Input
-                id="vat_number"
-                value={formData.vat_number}
-                onChange={(e) => setFormData({ ...formData, vat_number: e.target.value })}
-              />
-            </div>
+            {formData.customer_group === 'company' && (
+              <div>
+                <Label htmlFor="vat_number">VAT Number</Label>
+                <Input
+                  id="vat_number"
+                  value={formData.vat_number}
+                  onChange={(e) => setFormData({ ...formData, vat_number: e.target.value })}
+                />
+              </div>
+            )}
+            {formData.customer_group === 'private' && (
+              <div>
+                <Label htmlFor="person_id">Person ID</Label>
+                <Input
+                  id="person_id"
+                  value={formData.person_id}
+                  onChange={(e) => setFormData({ ...formData, person_id: e.target.value })}
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -313,6 +341,20 @@ export const CustomerManagement = () => {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!showInvoiceHistory} onOpenChange={() => setShowInvoiceHistory(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Customer Invoice History</DialogTitle>
+          </DialogHeader>
+          {showInvoiceHistory && (
+            <CustomerInvoiceHistory
+              customerId={showInvoiceHistory}
+              customerName={customers.find(c => c.id === showInvoiceHistory)?.name || ""}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

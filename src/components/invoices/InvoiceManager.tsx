@@ -28,6 +28,7 @@ interface Invoice {
   discount_percentage?: number;
   discount_amount?: number;
   sent_at?: string;
+  deleted_at?: string;
   invoice_customers: {
     name: string;
   };
@@ -57,6 +58,7 @@ export const InvoiceManager = () => {
             name
           )
         `)
+        .or('deleted_at.is.null,and(deleted_at.not.is.null,status.in.(paid,credited,issued))')
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -73,12 +75,23 @@ export const InvoiceManager = () => {
     if (!confirm("Are you sure you want to delete this invoice?")) return;
 
     try {
-      const { error } = await supabase
-        .from("invoices")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      const invoice = invoices.find(inv => inv.id === id);
+      
+      // If draft or not sent/paid, hard delete
+      if (invoice?.status === 'draft' || (!invoice?.sent_at && invoice?.status !== 'paid')) {
+        const { error } = await supabase
+          .from("invoices")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      } else {
+        // Soft delete for sent/paid invoices
+        const { error } = await supabase
+          .from("invoices")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       
       await logActivity({
         userId: user!.id,
@@ -285,17 +298,20 @@ export const InvoiceManager = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", className: string }> = {
-      draft: { variant: "secondary", className: "bg-yellow-500 hover:bg-yellow-600 text-white" },
-      issued: { variant: "default", className: "" },
-      paid: { variant: "outline", className: "bg-green-500 hover:bg-green-600 text-white border-green-500" },
-      credited: { variant: "destructive", className: "bg-red-500 hover:bg-red-600" },
-      deleted: { variant: "outline", className: "bg-gray-300 text-gray-500 opacity-50" },
+  const getStatusBadge = (invoice: Invoice) => {
+    if (invoice.deleted_at) {
+      return <Badge className="bg-muted text-muted-foreground opacity-60">DELETED</Badge>;
+    }
+    
+    const statusConfig: Record<string, { className: string }> = {
+      draft: { className: "bg-warning text-warning-foreground" },
+      issued: { className: "bg-info text-info-foreground" },
+      paid: { className: "bg-success text-success-foreground" },
+      credited: { className: "bg-destructive text-destructive-foreground" },
     };
     
-    const config = statusConfig[status] || { variant: "default", className: "" };
-    return <Badge variant={config.variant} className={config.className}>{status.toUpperCase()}</Badge>;
+    const config = statusConfig[invoice.status] || { className: "bg-muted text-muted-foreground" };
+    return <Badge className={config.className}>{invoice.status.toUpperCase()}</Badge>;
   };
 
   return (
@@ -348,20 +364,20 @@ export const InvoiceManager = () => {
           ) : (
             <div className="space-y-4">
               {invoices.map((invoice) => (
-                <Card key={invoice.id} className={invoice.status === 'deleted' ? 'opacity-50' : ''}>
+                <Card key={invoice.id} className={invoice.deleted_at ? 'opacity-50 bg-muted/20' : ''}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg font-medium">
                         {invoice.invoice_number}
                       </CardTitle>
-                      {invoice.sent_at && (
-                        <Badge variant="outline" className="gap-1">
+                      {invoice.sent_at && !invoice.deleted_at && (
+                        <Badge variant="outline" className="gap-1 bg-info/10 text-info border-info/20">
                           <Send className="w-3 h-3" />
                           Sent
                         </Badge>
                       )}
                     </div>
-                    {getStatusBadge(invoice.status)}
+                    {getStatusBadge(invoice)}
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -390,7 +406,7 @@ export const InvoiceManager = () => {
                           setEditingInvoice(invoice.id);
                           setShowInvoiceForm(true);
                         }}
-                        disabled={invoice.status === 'deleted'}
+                        disabled={!!invoice.deleted_at}
                       >
                         Edit
                       </Button>
@@ -398,11 +414,12 @@ export const InvoiceManager = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadPDF(invoice.id)}
+                        disabled={!!invoice.deleted_at}
                       >
                         <Download className="w-4 h-4 mr-2" />
                         PDF
                       </Button>
-                      {invoice.status !== "paid" && (
+                      {invoice.status !== "paid" && !invoice.deleted_at && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -412,22 +429,26 @@ export const InvoiceManager = () => {
                           Mark as Paid
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendEmail(invoice.id)}
-                      >
-                        <Mail className="w-4 h-4 mr-2" />
-                        Email
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteInvoice(invoice.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
+                      {!invoice.deleted_at && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendEmail(invoice.id)}
+                          >
+                            <Mail className="w-4 h-4 mr-2" />
+                            Email
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

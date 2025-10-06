@@ -200,6 +200,16 @@ export type Database = {
           smtp_password: string | null
           smtp_port: number | null
           smtp_username: string | null
+          template_footer_height: number | null
+          template_header_height: number | null
+          template_logo_width: number | null
+          template_margin_bottom: number | null
+          template_margin_left: number | null
+          template_margin_right: number | null
+          template_margin_top: number | null
+          template_primary_color: string | null
+          template_secondary_color: string | null
+          template_show_logo: boolean | null
           updated_at: string | null
           user_id: string
           vat_number: string | null
@@ -227,6 +237,16 @@ export type Database = {
           smtp_password?: string | null
           smtp_port?: number | null
           smtp_username?: string | null
+          template_footer_height?: number | null
+          template_header_height?: number | null
+          template_logo_width?: number | null
+          template_margin_bottom?: number | null
+          template_margin_left?: number | null
+          template_margin_right?: number | null
+          template_margin_top?: number | null
+          template_primary_color?: string | null
+          template_secondary_color?: string | null
+          template_show_logo?: boolean | null
           updated_at?: string | null
           user_id: string
           vat_number?: string | null
@@ -254,6 +274,16 @@ export type Database = {
           smtp_password?: string | null
           smtp_port?: number | null
           smtp_username?: string | null
+          template_footer_height?: number | null
+          template_header_height?: number | null
+          template_logo_width?: number | null
+          template_margin_bottom?: number | null
+          template_margin_left?: number | null
+          template_margin_right?: number | null
+          template_margin_top?: number | null
+          template_primary_color?: string | null
+          template_secondary_color?: string | null
+          template_show_logo?: boolean | null
           updated_at?: string | null
           user_id?: string
           vat_number?: string | null
@@ -269,6 +299,7 @@ export type Database = {
           email: string | null
           id: string
           name: string
+          person_id: string | null
           updated_at: string | null
           user_id: string
           vat_number: string | null
@@ -281,6 +312,7 @@ export type Database = {
           email?: string | null
           id?: string
           name: string
+          person_id?: string | null
           updated_at?: string | null
           user_id: string
           vat_number?: string | null
@@ -293,6 +325,7 @@ export type Database = {
           email?: string | null
           id?: string
           name?: string
+          person_id?: string | null
           updated_at?: string | null
           user_id?: string
           vat_number?: string | null
@@ -336,6 +369,8 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
           id: string
           invoice_id: string
           line_order: number
@@ -351,6 +386,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
           id?: string
           invoice_id: string
           line_order?: number
@@ -366,6 +403,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
           id?: string
           invoice_id?: string
           line_order?: number
@@ -439,6 +478,7 @@ export type Database = {
           created_at: string | null
           custom_text: string | null
           customer_id: string
+          deleted_at: string | null
           discount_amount: number | null
           discount_percentage: number | null
           due_date: string
@@ -458,6 +498,7 @@ export type Database = {
           created_at?: string | null
           custom_text?: string | null
           customer_id: string
+          deleted_at?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           due_date: string
@@ -477,6 +518,7 @@ export type Database = {
           created_at?: string | null
           custom_text?: string | null
           customer_id?: string
+          deleted_at?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           due_date?: string
