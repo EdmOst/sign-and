@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { logActivity } from "@/lib/activityLogger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,12 +80,34 @@ export const ProductManagement = () => {
           .update(data)
           .eq("id", editingId);
         if (error) throw error;
+        
+        await logActivity({
+          userId: user.id,
+          userName: user.email || undefined,
+          userEmail: user.email || undefined,
+          actionType: "product_updated",
+          actionDescription: `Updated product ${formData.name}`,
+          metadata: { product_id: editingId, product_name: formData.name },
+        });
+        
         toast.success("Product updated successfully");
       } else {
-        const { error } = await supabase
+        const { data: result, error } = await supabase
           .from("invoice_products")
-          .insert(data);
+          .insert(data)
+          .select()
+          .single();
         if (error) throw error;
+        
+        await logActivity({
+          userId: user.id,
+          userName: user.email || undefined,
+          userEmail: user.email || undefined,
+          actionType: "product_created",
+          actionDescription: `Created product ${formData.name}`,
+          metadata: { product_id: result.id, product_name: formData.name },
+        });
+        
         toast.success("Product created successfully");
       }
 
@@ -115,12 +138,24 @@ export const ProductManagement = () => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
+      const productToDelete = products.find(p => p.id === id);
+      
       const { error } = await supabase
         .from("invoice_products")
         .delete()
         .eq("id", id);
 
       if (error) throw error;
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "product_deleted",
+        actionDescription: `Deleted product ${productToDelete?.name || id}`,
+        metadata: { product_id: id, product_name: productToDelete?.name },
+      });
+
       toast.success("Product deleted successfully");
       fetchProducts();
     } catch (error) {

@@ -22,6 +22,7 @@ import { Copyright } from "@/components/Copyright";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InvoiceManager } from "@/components/invoices/InvoiceManager";
 import { InvoiceSelector } from "@/components/invoices/InvoiceSelector";
+import { useInvoiceModule } from "@/hooks/useInvoiceModule";
 
 // Set up PDF.js worker from CDN
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
@@ -51,6 +52,7 @@ export const PDFSigner: React.FC = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const { role, loading: roleLoading } = useUserRole();
+  const { isEnabled: invoiceModuleEnabled, loading: invoiceModuleLoading } = useInvoiceModule();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
@@ -537,14 +539,16 @@ export const PDFSigner: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <UserProfileDropdown onSettingsClick={() => setShowAdminSettings(true)} />
-              <Button
-                variant="outline"
-                onClick={() => setShowInvoices(true)}
-                className="flex items-center gap-2"
-              >
-                <Receipt className="h-4 w-4" />
-                Invoices
-              </Button>
+              {invoiceModuleEnabled && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInvoices(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Receipt className="h-4 w-4" />
+                  Invoices
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setShowArchive(!showArchive)}

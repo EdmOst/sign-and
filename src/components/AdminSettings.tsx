@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { UserActivityLogs } from "@/components/UserActivityLogs";
 import { BackupManagement } from "@/components/BackupManagement";
 import { LogoUpload } from "@/components/LogoUpload";
+import { LicenseManager } from "@/components/LicenseManager";
+import { InvoiceModuleToggle } from "@/components/InvoiceModuleToggle";
 
 interface User {
   id: string;
@@ -694,6 +696,10 @@ export const AdminSettings: React.FC = () => {
         onSettingsUpdate={setCompanySettings}
       />
 
+      <InvoiceModuleToggle />
+
+      <LicenseManager />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -775,8 +781,10 @@ export const AdminSettings: React.FC = () => {
             <p className="text-sm font-medium text-destructive">⚠️ This action will:</p>
             <ul className="text-sm text-muted-foreground space-y-1 ml-4">
               <li>• Delete all signed PDF documents</li>
+              <li>• Remove all invoices and related items</li>
+              <li>• Delete all customers and products</li>
+              <li>• Clear all activity logs</li>
               <li>• Remove all signatures and metadata</li>
-              <li>• Clear all document history</li>
               <li>• Cannot be reversed or undone</li>
             </ul>
           </div>

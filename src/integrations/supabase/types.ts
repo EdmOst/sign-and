@@ -94,6 +94,10 @@ export type Database = {
           company_name: string | null
           created_at: string
           id: string
+          invoice_module_enabled: boolean | null
+          license_expires_at: string | null
+          license_key: string | null
+          license_status: string | null
           logo_url: string | null
           updated_at: string
           updated_by: string | null
@@ -102,6 +106,10 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           id?: string
+          invoice_module_enabled?: boolean | null
+          license_expires_at?: string | null
+          license_key?: string | null
+          license_status?: string | null
           logo_url?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -110,6 +118,10 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           id?: string
+          invoice_module_enabled?: boolean | null
+          license_expires_at?: string | null
+          license_key?: string | null
+          license_status?: string | null
           logo_url?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -636,6 +648,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_license_valid: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       generate_customer_number: {
         Args: Record<PropertyKey, never>
         Returns: string

@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, ChevronDown, Search, FileText } from "lucide-react";
 import { CustomerInvoiceHistory } from "./CustomerInvoiceHistory";
+import { logActivity } from "@/lib/activityLogger";
 
 interface Customer {
   id: string;
@@ -105,6 +106,16 @@ export const CustomerManagement = () => {
           .update(data)
           .eq("id", editingId);
         if (error) throw error;
+        
+        await logActivity({
+          userId: user.id,
+          userName: user.email || undefined,
+          userEmail: user.email || undefined,
+          actionType: "customer_updated",
+          actionDescription: `Updated customer ${formData.name}`,
+          metadata: { customer_id: editingId, customer_name: formData.name },
+        });
+        
         toast.success("Customer updated successfully");
       } else {
         const { data: result, error } = await supabase
@@ -122,6 +133,16 @@ export const CustomerManagement = () => {
             .update({ customer_number: numberData })
             .eq("id", result.id);
         }
+        
+        await logActivity({
+          userId: user.id,
+          userName: user.email || undefined,
+          userEmail: user.email || undefined,
+          actionType: "customer_created",
+          actionDescription: `Created customer ${formData.name}`,
+          metadata: { customer_id: result.id, customer_name: formData.name },
+        });
+        
         toast.success("Customer created successfully");
       }
 
@@ -152,12 +173,24 @@ export const CustomerManagement = () => {
     if (!confirm("Are you sure you want to delete this customer?")) return;
 
     try {
+      const customerToDelete = customers.find(c => c.id === id);
+      
       const { error } = await supabase
         .from("invoice_customers")
         .delete()
         .eq("id", id);
 
       if (error) throw error;
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "customer_deleted",
+        actionDescription: `Deleted customer ${customerToDelete?.name || id}`,
+        metadata: { customer_id: id, customer_name: customerToDelete?.name },
+      });
+
       toast.success("Customer deleted successfully");
       fetchCustomers();
     } catch (error) {
