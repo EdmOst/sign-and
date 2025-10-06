@@ -151,7 +151,7 @@ export async function generateInvoicePDF(
   });
   
   yPosition -= 20;
-  page.drawText(invoiceData.invoice_customers.name, {
+  page.drawText(sanitizeText(invoiceData.invoice_customers.name), {
     x: leftMargin,
     y: yPosition,
     size: 11,
@@ -161,7 +161,7 @@ export async function generateInvoicePDF(
   yPosition -= 15;
   const customerAddressLines = invoiceData.invoice_customers.address.split('\n');
   customerAddressLines.forEach(line => {
-    page.drawText(line, {
+    page.drawText(sanitizeText(line), {
       x: leftMargin,
       y: yPosition,
       size: 10,
@@ -171,7 +171,7 @@ export async function generateInvoicePDF(
   });
   
   if (invoiceData.invoice_customers.vat_number) {
-    page.drawText(`VAT: ${invoiceData.invoice_customers.vat_number}`, {
+    page.drawText(sanitizeText(`VAT: ${invoiceData.invoice_customers.vat_number}`), {
       x: leftMargin,
       y: yPosition,
       size: 10,
@@ -181,7 +181,7 @@ export async function generateInvoicePDF(
   }
   
   if (invoiceData.invoice_customers.email) {
-    page.drawText(`Email: ${invoiceData.invoice_customers.email}`, {
+    page.drawText(sanitizeText(`Email: ${invoiceData.invoice_customers.email}`), {
       x: leftMargin,
       y: yPosition,
       size: 10,
