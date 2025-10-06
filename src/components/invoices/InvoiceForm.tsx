@@ -84,7 +84,12 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
         .eq("id", invoiceId)
         .single();
 
-      if (invoiceError) throw invoiceError;
+      if (invoiceError) {
+        console.error("Error fetching invoice:", invoiceError);
+        toast.error(`Failed to load invoice: ${invoiceError.message}`);
+        onClose();
+        return;
+      }
 
       setCustomerId(invoice.customer_id);
       setIssueDate(invoice.issue_date);
@@ -98,11 +103,17 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
         .eq("invoice_id", invoiceId)
         .order("line_order");
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error("Error fetching invoice items:", itemsError);
+        toast.error(`Failed to load invoice items: ${itemsError.message}`);
+        return;
+      }
+      
       setItems(invoiceItems || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching invoice:", error);
-      toast.error("Failed to load invoice");
+      toast.error(`Failed to load invoice: ${error?.message || 'Unknown error'}`);
+      onClose();
     }
   };
 
@@ -179,7 +190,11 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
         const { data: numberData, error: numberError } = await supabase
           .rpc("generate_invoice_number", { p_user_id: user.id });
         
-        if (numberError) throw numberError;
+        if (numberError) {
+          console.error("Error generating invoice number:", numberError);
+          toast.error(`Failed to generate invoice number: ${numberError.message}`);
+          return;
+        }
         invoiceNumber = numberData;
       }
 
@@ -259,9 +274,14 @@ export const InvoiceForm = ({ invoiceId, onClose }: { invoiceId: string | null; 
 
       toast.success(invoiceId ? "Invoice updated successfully" : "Invoice created successfully");
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving invoice:", error);
-      toast.error("Failed to save invoice");
+      const errorMessage = error?.message || 'Unknown error occurred';
+      if (errorMessage.includes('duplicate key')) {
+        toast.error("This invoice number already exists. Please try again.");
+      } else {
+        toast.error(`Failed to save invoice: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
