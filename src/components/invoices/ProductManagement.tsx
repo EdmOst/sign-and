@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Product {
   id: string;
@@ -27,6 +28,7 @@ export const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -164,18 +166,36 @@ export const ProductManagement = () => {
     }
   };
 
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.product_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <h2 className="text-xl font-semibold">Products & Services</h2>
-        <Button onClick={() => {
-          setEditingId(null);
-          setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20", product_code: "", barcode: "" });
-          setShowForm(true);
-        }}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={() => {
+            setEditingId(null);
+            setFormData({ name: "", description: "", default_price: "", default_vat_rate: "20", product_code: "", barcode: "" });
+            setShowForm(true);
+          }}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -186,56 +206,52 @@ export const ProductManagement = () => {
             No products yet. Add your first product or service to get started.
           </CardContent>
         </Card>
+      ) : filteredProducts.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            No products match your search.
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {products.map((product) => (
-            <Card key={product.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{product.name}</span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}>
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(product.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {product.description && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Description</p>
-                    <p className="text-sm">{product.description}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Default Price</p>
-                    <p className="text-sm font-medium">€{Number(product.default_price).toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Default VAT Rate</p>
-                    <p className="text-sm font-medium">{Number(product.default_vat_rate)}%</p>
-                  </div>
-                  {product.product_code && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Product Code</p>
-                      <p className="text-sm font-medium">{product.product_code}</p>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>VAT %</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead>Barcode</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                    {product.description || "-"}
+                  </TableCell>
+                  <TableCell>€{Number(product.default_price).toFixed(2)}</TableCell>
+                  <TableCell>{Number(product.default_vat_rate)}%</TableCell>
+                  <TableCell>{product.product_code || "-"}</TableCell>
+                  <TableCell className="font-mono text-sm">{product.barcode || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(product.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                  )}
-                  {product.barcode && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Barcode</p>
-                      <p className="text-sm font-medium">{product.barcode}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>

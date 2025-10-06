@@ -43,6 +43,8 @@ interface CompanySettings {
   legal_notes?: string;
   show_product_codes?: boolean;
   show_barcodes?: boolean;
+  barcode_prefix?: string;
+  barcode_suffix?: string;
   issuer_first_name?: string;
   issuer_last_name?: string;
   issuer_role?: string;
@@ -68,6 +70,7 @@ export async function generateInvoicePDF(
   
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fontCourier = await pdfDoc.embedFont(StandardFonts.Courier); // For barcodes
   
   let yPosition = height - 50;
   const leftMargin = 50;
@@ -206,11 +209,18 @@ export async function generateInvoicePDF(
   });
   
   const headers = ['Item', 'Qty', 'Unit Price', 'VAT %', 'Total'];
-  const columnWidths = [250, 50, 80, 60, 80];
+  const columnWidths = [200, 50, 80, 60, 80];
   
   if (companySettings.show_product_codes) {
     headers.unshift('Code');
     columnWidths.unshift(60);
+    columnWidths[1] = 180; // Reduce item width to make space
+  }
+  
+  if (companySettings.show_barcodes) {
+    headers.splice(1, 0, 'Barcode');
+    columnWidths.splice(1, 0, 90);
+    columnWidths[2] = 140; // Further reduce item width
   }
   
   xPosition = leftMargin + 5;
@@ -230,25 +240,49 @@ export async function generateInvoicePDF(
   invoiceData.invoice_items.forEach(item => {
     xPosition = leftMargin + 5;
     
-    if (companySettings.show_product_codes && item.product_code) {
-      page.drawText(sanitizeText(item.product_code.substring(0, 10)), {
-        x: xPosition,
-        y: yPosition,
-        size: 9,
-        font,
-      });
-      xPosition += 60;
-    } else if (companySettings.show_product_codes) {
+    // Product Code Column
+    if (companySettings.show_product_codes) {
+      if (item.product_code) {
+        page.drawText(sanitizeText(item.product_code.substring(0, 10)), {
+          x: xPosition,
+          y: yPosition,
+          size: 9,
+          font,
+        });
+      }
       xPosition += 60;
     }
     
-    page.drawText(sanitizeText(item.name.substring(0, 35)), {
+    // Barcode Column (CODE39 format)
+    if (companySettings.show_barcodes) {
+      if (item.barcode) {
+        const barcodePrefix = companySettings.barcode_prefix || '*';
+        const barcodeSuffix = companySettings.barcode_suffix || '*';
+        const barcodeText = `${barcodePrefix}${item.barcode}${barcodeSuffix}`;
+        
+        page.drawText(sanitizeText(barcodeText), {
+          x: xPosition,
+          y: yPosition,
+          size: 8,
+          font: fontCourier, // Monospace font for barcode
+        });
+      }
+      xPosition += 90;
+    }
+    
+    // Item Name
+    const itemNameWidth = companySettings.show_product_codes 
+      ? (companySettings.show_barcodes ? 140 : 180) 
+      : (companySettings.show_barcodes ? 160 : 200);
+    const maxNameLength = companySettings.show_barcodes ? 20 : (companySettings.show_product_codes ? 25 : 35);
+    
+    page.drawText(sanitizeText(item.name.substring(0, maxNameLength)), {
       x: xPosition,
       y: yPosition,
       size: 9,
       font,
     });
-    xPosition += 250;
+    xPosition += itemNameWidth;
     
     page.drawText(item.quantity.toString(), {
       x: xPosition,

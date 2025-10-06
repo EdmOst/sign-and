@@ -191,6 +191,8 @@ export type Database = {
       invoice_company_settings: {
         Row: {
           address: string
+          barcode_prefix: string | null
+          barcode_suffix: string | null
           bic: string | null
           company_name: string
           created_at: string | null
@@ -228,6 +230,8 @@ export type Database = {
         }
         Insert: {
           address: string
+          barcode_prefix?: string | null
+          barcode_suffix?: string | null
           bic?: string | null
           company_name: string
           created_at?: string | null
@@ -265,6 +269,8 @@ export type Database = {
         }
         Update: {
           address?: string
+          barcode_prefix?: string | null
+          barcode_suffix?: string | null
           bic?: string | null
           company_name?: string
           created_at?: string | null

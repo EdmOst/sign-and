@@ -24,6 +24,8 @@ export const InvoiceCompanySettings = () => {
     legal_notes: "",
     show_product_codes: false,
     show_barcodes: false,
+    barcode_prefix: "*",
+    barcode_suffix: "*",
     smtp_host: "",
     smtp_port: 587,
     smtp_username: "",
@@ -65,6 +67,8 @@ export const InvoiceCompanySettings = () => {
           legal_notes: data.legal_notes || "",
           show_product_codes: data.show_product_codes || false,
           show_barcodes: data.show_barcodes || false,
+          barcode_prefix: data.barcode_prefix || "*",
+          barcode_suffix: data.barcode_suffix || "*",
           smtp_host: data.smtp_host || "",
           smtp_port: data.smtp_port || 587,
           smtp_username: data.smtp_username || "",
@@ -225,6 +229,30 @@ export const InvoiceCompanySettings = () => {
                 onCheckedChange={(checked) => setFormData({ ...formData, show_barcodes: checked })}
               />
             </div>
+            {formData.show_barcodes && (
+              <div className="grid grid-cols-2 gap-4 ml-6">
+                <div>
+                  <Label htmlFor="barcode_prefix">Barcode Prefix (CODE39)</Label>
+                  <Input
+                    id="barcode_prefix"
+                    value={formData.barcode_prefix}
+                    onChange={(e) => setFormData({ ...formData, barcode_prefix: e.target.value })}
+                    placeholder="*"
+                    maxLength={2}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="barcode_suffix">Barcode Suffix (CODE39)</Label>
+                  <Input
+                    id="barcode_suffix"
+                    value={formData.barcode_suffix}
+                    onChange={(e) => setFormData({ ...formData, barcode_suffix: e.target.value })}
+                    placeholder="*"
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="space-y-4 border-t pt-4">

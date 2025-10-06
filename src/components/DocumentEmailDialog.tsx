@@ -44,10 +44,22 @@ export const DocumentEmailDialog = ({ open, onOpenChange, documentData, document
       const { data, error } = await supabase
         .from("invoice_email_templates")
         .select("*")
+        .order("is_default", { ascending: false })
         .order("name");
 
       if (error) throw error;
       setTemplates(data || []);
+      
+      // Auto-select first template (default or first in list)
+      if (data && data.length > 0) {
+        const defaultTemplate = data.find(t => t.is_default) || data[0];
+        setSelectedTemplateId(defaultTemplate.id);
+        setFormData({
+          ...formData,
+          subject: defaultTemplate.subject,
+          body: defaultTemplate.body,
+        });
+      }
     } catch (error) {
       console.error("Error fetching templates:", error);
     }
