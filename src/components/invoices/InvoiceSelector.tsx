@@ -87,7 +87,7 @@ export const InvoiceSelector = ({ onInvoiceLoad }: InvoiceSelectorProps) => {
 
       const pdfBytes = await generateInvoicePDF(invoice, companySettings);
       
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
       const file = new File([blob], `${invoice.invoice_number}.pdf`, { type: "application/pdf" });
       
       onInvoiceLoad(file);

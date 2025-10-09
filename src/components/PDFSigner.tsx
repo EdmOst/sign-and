@@ -388,7 +388,7 @@ export const PDFSigner: React.FC = () => {
       }
 
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement("a");
@@ -399,7 +399,7 @@ export const PDFSigner: React.FC = () => {
       URL.revokeObjectURL(url);
 
       // Create a blob URL for the signed document that persists
-      const signedBlob = new Blob([pdfBytes], { type: "application/pdf" });
+      const signedBlob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
       const signedBlobUrl = URL.createObjectURL(signedBlob);
       
       const updatedDocuments = signedDocuments.map(doc => {
