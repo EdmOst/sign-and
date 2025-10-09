@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Plus, Download, Trash2, CheckCircle, Mail, Send, Users, Package, Settings as SettingsIcon, FileText } from "lucide-react";
+import { Plus, Download, Trash2, CheckCircle, Mail, Send, Users, Package, Settings as SettingsIcon, FileText, Home } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
 import { Badge } from "@/components/ui/badge";
@@ -312,7 +312,13 @@ const Invoices = () => {
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="p-6 max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Invoice Management</h1>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => navigate("/")}>
+              <Home className="w-4 h-4 mr-2" />
+              Main
+            </Button>
+            <h1 className="text-3xl font-bold">Invoice Management</h1>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate("/customers")}>
               <Users className="w-4 h-4 mr-2" />
