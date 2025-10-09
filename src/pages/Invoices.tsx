@@ -1,0 +1,474 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+import { Plus, Download, Trash2, CheckCircle, Mail, Send, Users, Package, Settings as SettingsIcon, FileText } from "lucide-react";
+import { logActivity } from "@/lib/activityLogger";
+import { InvoiceForm } from "@/components/invoices/InvoiceForm";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { generateInvoicePDF } from "@/lib/invoicePdfGenerator";
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  status: string;
+  total: number;
+  discount_percentage?: number;
+  discount_amount?: number;
+  sent_at?: string;
+  deleted_at?: string;
+  invoice_customers: {
+    name: string;
+    email?: string;
+  };
+}
+
+const Invoices = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchInvoices();
+    }
+  }, [user]);
+
+  const fetchInvoices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_customers (
+            name,
+            email
+          )
+        `)
+        .or('deleted_at.is.null,and(deleted_at.not.is.null,status.in.(paid,credited,issued))')
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setInvoices(data || []);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      toast.error("Failed to load invoices");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this invoice?")) return;
+
+    try {
+      const invoice = invoices.find(inv => inv.id === id);
+      
+      if (invoice?.status === 'draft' || (!invoice?.sent_at && invoice?.status !== 'paid')) {
+        const { error } = await supabase
+          .from("invoices")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("invoices")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_deleted",
+        actionDescription: `Deleted invoice ${id}`,
+        metadata: { invoice_id: id },
+      });
+      
+      toast.success("Invoice deleted successfully");
+      fetchInvoices();
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      toast.error("Failed to delete invoice");
+    }
+  };
+
+  const handleMarkAsPaid = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .update({ status: "paid" })
+        .eq("id", id);
+
+      if (error) throw error;
+      
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_marked_paid",
+        actionDescription: `Marked invoice ${id} as paid`,
+        metadata: { invoice_id: id },
+      });
+      
+      toast.success("Invoice marked as paid");
+      fetchInvoices();
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      toast.error("Failed to update invoice");
+    }
+  };
+
+  const handleDownloadPDF = async (invoiceId: string) => {
+    try {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_customers (*),
+          invoice_items (*)
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      const { data: companySettings, error: settingsError } = await supabase
+        .from("invoice_company_settings")
+        .select("*")
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (!companySettings) {
+        toast.error("Please configure company settings first");
+        navigate("/invoice-settings");
+        return;
+      }
+
+      const pdfBytes = await generateInvoicePDF(invoice, companySettings);
+      
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoice_number}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_downloaded",
+        actionDescription: `Downloaded PDF for invoice ${invoice.invoice_number}`,
+        metadata: { 
+          invoice_id: invoiceId,
+          invoice_number: invoice.invoice_number,
+        },
+      });
+
+      toast.success("Invoice PDF downloaded");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleSendEmail = async (invoiceId: string) => {
+    try {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_customers (*),
+          invoice_items (*)
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      if (!invoice.invoice_customers.email) {
+        toast.error("Customer does not have an email address");
+        return;
+      }
+
+      const { data: templates } = await supabase
+        .from("invoice_email_templates")
+        .select("*")
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (!templates) {
+        toast.error("Please create a default email template first");
+        navigate("/email-templates");
+        return;
+      }
+
+      const { data: companySettings, error: settingsError } = await supabase
+        .from("invoice_company_settings")
+        .select("*")
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (!companySettings) {
+        toast.error("Please configure company settings first");
+        navigate("/invoice-settings");
+        return;
+      }
+
+      const pdfBytes = await generateInvoicePDF(invoice, companySettings);
+      const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+
+      let subject = templates.subject
+        .replace(/{invoice_number}/g, invoice.invoice_number)
+        .replace(/{company_name}/g, companySettings.company_name)
+        .replace(/{customer_name}/g, invoice.invoice_customers.name);
+
+      let body = templates.body
+        .replace(/{invoice_number}/g, invoice.invoice_number)
+        .replace(/{company_name}/g, companySettings.company_name)
+        .replace(/{customer_name}/g, invoice.invoice_customers.name)
+        .replace(/{total}/g, `€${Number(invoice.total).toFixed(2)}`)
+        .replace(/{due_date}/g, format(new Date(invoice.due_date), "PP"));
+
+      const { data, error } = await supabase.functions.invoke("send-invoice-email", {
+        body: {
+          to: invoice.invoice_customers.email,
+          subject,
+          body,
+          pdfBase64: base64Pdf,
+          fileName: `${invoice.invoice_number}.pdf`,
+        },
+      });
+
+      if (error) {
+        if (error.message.includes("RESEND_API_KEY")) {
+          toast.error("Email service not configured. Please add RESEND_API_KEY to your Supabase secrets.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      await supabase
+        .from("invoices")
+        .update({ sent_at: new Date().toISOString() })
+        .eq("id", invoiceId);
+
+      await logActivity({
+        userId: user!.id,
+        userName: user!.email || undefined,
+        userEmail: user!.email || undefined,
+        actionType: "invoice_emailed",
+        actionDescription: `Sent invoice ${invoice.invoice_number} to ${invoice.invoice_customers.email}`,
+        metadata: { 
+          invoice_id: invoiceId,
+          invoice_number: invoice.invoice_number,
+          recipient_email: invoice.invoice_customers.email,
+        },
+      });
+
+      toast.success(`Email sent to ${invoice.invoice_customers.email}`);
+      fetchInvoices();
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("Failed to send email");
+    }
+  };
+
+  const getStatusBadge = (invoice: Invoice) => {
+    if (invoice.deleted_at) {
+      return <Badge className="bg-muted text-muted-foreground opacity-60">DELETED</Badge>;
+    }
+    
+    const statusConfig: Record<string, { className: string }> = {
+      draft: { className: "bg-warning text-warning-foreground" },
+      issued: { className: "bg-info text-info-foreground" },
+      paid: { className: "bg-success text-success-foreground" },
+      credited: { className: "bg-destructive text-destructive-foreground" },
+    };
+    
+    const config = statusConfig[invoice.status] || { className: "bg-muted text-muted-foreground" };
+    return <Badge className={config.className}>{invoice.status.toUpperCase()}</Badge>;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Invoice Management</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/customers")}>
+              <Users className="w-4 h-4 mr-2" />
+              Customers
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/products")}>
+              <Package className="w-4 h-4 mr-2" />
+              Products
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/invoice-settings")}>
+              <SettingsIcon className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/email-templates")}>
+              <Mail className="w-4 h-4 mr-2" />
+              Templates
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Invoices
+          </h2>
+          <Button onClick={() => setShowInvoiceForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Invoice
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12">Loading...</div>
+        ) : invoices.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              No invoices yet. Create your first invoice to get started.
+            </CardContent>
+          </Card>
+        ) : (
+          <ScrollArea className="h-[calc(100vh-240px)]">
+            <div className="space-y-4 pr-4">
+              {invoices.map((invoice) => (
+                <Card key={invoice.id} className={invoice.deleted_at ? 'opacity-50 bg-muted/20' : ''}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg font-medium">
+                        {invoice.invoice_number}
+                      </CardTitle>
+                      {invoice.sent_at && !invoice.deleted_at && (
+                        <Badge variant="outline" className="gap-1 bg-info/10 text-info border-info/20">
+                          <Send className="w-3 h-3" />
+                          Sent
+                        </Badge>
+                      )}
+                    </div>
+                    {getStatusBadge(invoice)}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Customer</p>
+                        <p className="font-medium">{invoice.invoice_customers.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Issue Date</p>
+                        <p className="font-medium">{format(new Date(invoice.issue_date), "PP")}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Due Date</p>
+                        <p className="font-medium">{format(new Date(invoice.due_date), "PP")}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total</p>
+                        <p className="font-medium">€{Number(invoice.total).toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingInvoice(invoice.id);
+                          setShowInvoiceForm(true);
+                        }}
+                        disabled={!!invoice.deleted_at}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPDF(invoice.id)}
+                        disabled={!!invoice.deleted_at}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        PDF
+                      </Button>
+                      {invoice.status !== "paid" && !invoice.deleted_at && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleMarkAsPaid(invoice.id)}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Mark as Paid
+                        </Button>
+                      )}
+                      {!invoice.deleted_at && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendEmail(invoice.id)}
+                          >
+                            <Mail className="w-4 h-4 mr-2" />
+                            Email
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+
+        <Dialog open={showInvoiceForm} onOpenChange={setShowInvoiceForm}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingInvoice ? "Edit Invoice" : "Create New Invoice"}
+              </DialogTitle>
+            </DialogHeader>
+            <InvoiceForm
+              invoiceId={editingInvoice}
+              onClose={() => {
+                setShowInvoiceForm(false);
+                setEditingInvoice(null);
+                fetchInvoices();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+};
+
+export default Invoices;

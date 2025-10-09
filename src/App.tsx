@@ -8,6 +8,11 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Invoices from "./pages/Invoices";
+import Customers from "./pages/Customers";
+import Products from "./pages/Products";
+import InvoiceSettings from "./pages/InvoiceSettings";
+import EmailTemplates from "./pages/EmailTemplates";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +50,31 @@ const App = () => (
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/invoices" element={
+            <ProtectedRoute>
+              <Invoices />
+            </ProtectedRoute>
+          } />
+          <Route path="/customers" element={
+            <ProtectedRoute>
+              <Customers />
+            </ProtectedRoute>
+          } />
+          <Route path="/products" element={
+            <ProtectedRoute>
+              <Products />
+            </ProtectedRoute>
+          } />
+          <Route path="/invoice-settings" element={
+            <ProtectedRoute>
+              <InvoiceSettings />
+            </ProtectedRoute>
+          } />
+          <Route path="/email-templates" element={
+            <ProtectedRoute>
+              <EmailTemplates />
             </ProtectedRoute>
           } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

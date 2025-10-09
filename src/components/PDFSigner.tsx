@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Upload, Download, FileText, Calendar, Search, Home, Archive, Settings, LogOut, RefreshCw, Receipt } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { SignaturePad } from "./SignaturePad";
 import { DocumentArchive } from "./DocumentArchive";
 import { SignatureArea } from "./SignatureArea";
@@ -53,6 +54,7 @@ export const PDFSigner: React.FC = () => {
   const { isAdmin } = useUserRole();
   const { role, loading: roleLoading } = useUserRole();
   const { isEnabled: invoiceModuleEnabled, loading: invoiceModuleLoading } = useInvoiceModule();
+  const navigate = useNavigate();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
@@ -542,7 +544,7 @@ export const PDFSigner: React.FC = () => {
               {invoiceModuleEnabled && (
                 <Button
                   variant="outline"
-                  onClick={() => setShowInvoices(true)}
+                  onClick={() => navigate("/invoices")}
                   className="flex items-center gap-2"
                 >
                   <Receipt className="h-4 w-4" />
