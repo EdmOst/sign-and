@@ -131,6 +131,11 @@ export type Database = {
       documents: {
         Row: {
           created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_signatures: Json | null
+          customer_signed: boolean | null
+          customer_signed_at: string | null
           id: string
           last_downloaded_at: string | null
           last_downloaded_by_email: string | null
@@ -141,6 +146,7 @@ export type Database = {
           name: string
           original_filename: string
           pdf_data: string
+          share_token: string | null
           signatures: Json
           signed_at: string
           signed_by_email: string | null
@@ -150,6 +156,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_signatures?: Json | null
+          customer_signed?: boolean | null
+          customer_signed_at?: string | null
           id?: string
           last_downloaded_at?: string | null
           last_downloaded_by_email?: string | null
@@ -160,6 +171,7 @@ export type Database = {
           name: string
           original_filename: string
           pdf_data: string
+          share_token?: string | null
           signatures?: Json
           signed_at?: string
           signed_by_email?: string | null
@@ -169,6 +181,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_signatures?: Json | null
+          customer_signed?: boolean | null
+          customer_signed_at?: string | null
           id?: string
           last_downloaded_at?: string | null
           last_downloaded_by_email?: string | null
@@ -179,6 +196,7 @@ export type Database = {
           name?: string
           original_filename?: string
           pdf_data?: string
+          share_token?: string | null
           signatures?: Json
           signed_at?: string
           signed_by_email?: string | null
@@ -664,6 +682,10 @@ export type Database = {
       }
       generate_invoice_number: {
         Args: { p_user_id: string }
+        Returns: string
+      }
+      generate_share_token: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
       get_user_role: {
