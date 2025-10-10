@@ -13,6 +13,7 @@ import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import InvoiceSettings from "./pages/InvoiceSettings";
 import EmailTemplates from "./pages/EmailTemplates";
+import CustomerSign from "./pages/CustomerSign";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/sign/:token" element={<CustomerSign />} />
           <Route path="/" element={
             <ProtectedRoute>
               <Index />

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Document, Page } from "react-pdf";
-import { ArrowLeft, Download, Eye, Search, Calendar, FileText, Mail } from "lucide-react";
+import { ArrowLeft, Download, Eye, Search, Calendar, FileText, Mail, Share2, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,12 @@ interface DocumentData {
   last_downloaded_by_name?: string;
   last_downloaded_by_email?: string;
   last_downloaded_at?: string;
+  share_token?: string;
+  customer_signed?: boolean;
+  customer_signed_at?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_signatures?: any;
 }
 
 interface DocumentArchiveProps {
@@ -67,7 +73,13 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
           last_previewed_at,
           last_downloaded_by_name,
           last_downloaded_by_email,
-          last_downloaded_at
+          last_downloaded_at,
+          share_token,
+          customer_signed,
+          customer_signed_at,
+          customer_name,
+          customer_email,
+          customer_signatures
         `)
         .order('signed_at', { ascending: false });
 
@@ -203,6 +215,45 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
     setEmailDialogOpen(true);
   };
 
+  const handleGenerateShareLink = async (document: DocumentData) => {
+    try {
+      let token = document.share_token;
+      
+      if (!token) {
+        // Generate token using database function
+        const { data, error } = await supabase.rpc('generate_share_token');
+        
+        if (error) throw error;
+        token = data;
+
+        // Update document with token
+        const { error: updateError } = await supabase
+          .from('documents')
+          .update({ share_token: token })
+          .eq('id', document.id);
+
+        if (updateError) throw updateError;
+
+        await fetchDocuments();
+      }
+
+      const shareUrl = `${window.location.origin}/sign/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Share link copied to clipboard!');
+    } catch (error) {
+      console.error('Error generating share link:', error);
+      toast.error('Failed to generate share link');
+    }
+  };
+
+  const handleViewCustomerVersion = (document: DocumentData) => {
+    if (!document.share_token) {
+      toast.error('No share link generated yet');
+      return;
+    }
+    window.open(`/sign/${document.share_token}`, '_blank');
+  };
+
   const filteredDocuments = documents.filter(doc =>
     doc.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -259,6 +310,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                 <TableHead>Document Name</TableHead>
                 <TableHead>Signed Date & By</TableHead>
                 <TableHead>Signatures</TableHead>
+                <TableHead>Customer Status</TableHead>
                 <TableHead>Last Changes By</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -285,6 +337,20 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     <Badge variant="secondary">
                       {document.signatures.length} signature{document.signatures.length !== 1 ? 's' : ''}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {document.customer_signed ? (
+                      <div>
+                        <Badge variant="default" className="mb-1">Signed</Badge>
+                        <div className="text-xs text-muted-foreground">
+                          {document.customer_name}
+                        </div>
+                      </div>
+                    ) : document.share_token ? (
+                      <Badge variant="outline">Link Shared</Badge>
+                    ) : (
+                      <Badge variant="secondary">Not Shared</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {(() => {
@@ -325,11 +391,12 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                     })()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handlePreview(document)}
+                        title="Preview"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -337,6 +404,7 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownload(document)}
+                        title="Download"
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -344,9 +412,28 @@ export const DocumentArchive: React.FC<DocumentArchiveProps> = ({ onClose }) => 
                         variant="outline"
                         size="sm"
                         onClick={() => handleEmailDocument(document)}
+                        title="Email"
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleGenerateShareLink(document)}
+                        title="Generate Share Link"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                      {document.share_token && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewCustomerVersion(document)}
+                          title="View Customer Version"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
